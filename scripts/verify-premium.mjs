@@ -1,0 +1,106 @@
+import {_electron as electron} from 'playwright';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import assert from 'node:assert/strict';
+
+const root=path.resolve('.');
+const dataDir=await fs.mkdtemp(path.join(os.tmpdir(),'ibot-premium-preview-'));
+const output=path.join(root,'artifacts','design');
+await fs.mkdir(output,{recursive:true});
+const env={...process.env,IBOT_DATA_DIR:dataDir,IBOT_TEST:'1'};
+delete env.ELECTRON_RUN_AS_NODE;
+const application=await electron.launch({...(process.env.IBOT_TEST_EXECUTABLE?{executablePath:process.env.IBOT_TEST_EXECUTABLE,args:[]}:{args:[root]}),env});
+const errors=[];
+try {
+  const page=await application.firstWindow();
+  await application.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.setOpacity(0);win.showInactive();win.webContents.setBackgroundThrottling(false);});
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.getByRole('heading',{name:'What would you like to get done?'}).waitFor();
+  await page.evaluate(()=>window.ibot.invoke('settings.update',{settings:{motion:'off'}}));
+  await page.waitForFunction(()=>document.documentElement.dataset.motion==='off');
+  const shot=async name=>page.screenshot({path:path.join(output,name+'.png')});
+  const fit=async()=>{
+    const dimensions=await page.evaluate(()=>({width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight,composer:document.querySelector('.composer').getBoundingClientRect().toJSON()}));
+    assert(dimensions.scrollWidth<=dimensions.width&&dimensions.scrollHeight<=dimensions.height,'No outer overflow');
+    assert(dimensions.composer.bottom<=dimensions.height&&dimensions.composer.x>=0,'Composer stays visible');
+    assert.equal(await page.getByRole('button',{name:'New chat',exact:true}).count(),1);
+  };
+  await fit(); await shot('premium-desktop');
+  await page.getByRole('tab',{name:'Library',exact:true}).click();
+  await page.getByText('A place for the work.',{exact:true}).waitFor();
+  await shot('premium-library');
+  await page.getByRole('tab',{name:'Library',exact:true}).press('ArrowRight');
+  assert.equal(await page.getByRole('tab',{name:'Computer',exact:true}).getAttribute('aria-selected'),'true');
+  await page.getByRole('button',{name:"Open Chief's computer",exact:true}).waitFor();
+  await shot('premium-computer-tab');
+  await page.getByRole('tab',{name:'Details',exact:true}).click();
+  const routine=await page.evaluate(()=>window.ibot.invoke('routine.save',{botId:'chief',name:'Evening briefing',prompt:'Review the day.',time:'23:59',days:[1,2,3,4,5],timezone:'America/Chicago',enabled:false}));
+  const toggle=page.getByRole('switch',{name:'Enable Evening briefing',exact:true});
+  await toggle.click();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="Enable Evening briefing"]')?.getAttribute('aria-checked')==='true');
+  assert.equal((await page.evaluate(id=>window.ibot.invoke('state.get').then(state=>state.routines.find(item=>item.id===id)),routine.id)).enabled,true);
+  await toggle.click();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="Enable Evening briefing"]')?.getAttribute('aria-checked')==='false');
+  await page.evaluate(()=>window.ibot.invoke('settings.update',{settings:{theme:'light'}}));
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
+  await shot('premium-light');
+  await page.evaluate(()=>window.ibot.invoke('settings.update',{settings:{theme:'dark'}}));
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
+  await page.getByRole('button',{name:'Connect a model',exact:true}).click();
+  await page.getByRole('dialog',{name:'Settings'}).waitFor();
+  await page.getByRole('button',{name:'General',exact:true}).click();
+  await shot('premium-settings');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'Marketplace',exact:true}).click();
+  await page.getByRole('dialog',{name:'Marketplace'}).waitFor();
+  await page.getByRole('button',{name:'Bots',exact:true}).click();
+  await shot('premium-marketplace');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'Bot settings',exact:true}).click();
+  await page.getByRole('dialog').waitFor();
+  await shot('premium-bot-settings');
+  await page.keyboard.press('Escape');
+  await application.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(960,640));
+  await page.waitForFunction(()=>innerWidth<1000);
+  await fit(); await shot('premium-compact');
+  await application.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1360,900));
+  await page.getByRole('button',{name:'Toggle bot details',exact:true}).click();
+  await fit(); await shot('premium-focused');
+  await page.getByRole('button',{name:'Toggle bot details',exact:true}).click();
+  const conversation=await page.evaluate(()=>window.ibot.invoke('chat.create',{title:'Conversation layout check',botIds:['chief']}));
+  await page.getByRole('button',{name:/Conversation layout check/}).click();
+  const fixture=await page.evaluate(()=>window.ibot.invoke('state.get'));
+  // Preview fixtures stay in this temporary test profile; they never enter user data.
+  const createdAt=new Date().toISOString();
+  fixture.messages=[
+    {id:'layout-user',chatId:conversation.id,role:'user',content:'Help me turn an idea into a clear plan for the week.',createdAt},
+    {id:'layout-event',chatId:conversation.id,role:'event',content:'Conversation layout preview',createdAt},
+    {id:'layout-chief',chatId:conversation.id,botId:'chief',role:'assistant',content:'We can start with the outcome and work backward.\n\n### A useful first step\nTell me who this is for, what a successful result looks like, and when you need it.\n\n- Define the deliverable.\n- Gather the material we need.\n- Make a first version, then review it together.\n\nI’ll keep the plan focused and bring in a specialist when the work needs one.',createdAt}
+  ];
+  await application.evaluate(({BrowserWindow},state)=>BrowserWindow.getAllWindows()[0].webContents.send('ibot:state',state),fixture);
+  await page.getByRole('heading',{name:'A useful first step',exact:true}).waitFor();
+  await fit(); await shot('premium-conversation-fixture');
+  fixture.messages[2].attachments=[{id:'layout-file',name:'Planning brief.md',path:'/workspace/brief.md',size:2048,botId:'chief'}];
+  await application.evaluate(({BrowserWindow},state)=>BrowserWindow.getAllWindows()[0].webContents.send('ibot:state',state),fixture);
+  await page.getByRole('tab',{name:/Library/}).click();
+  await page.getByRole('tabpanel').getByText('Planning brief.md',{exact:true}).waitFor();
+  await shot('premium-library-fixture');
+  await page.getByRole('tab',{name:'Details',exact:true}).click();
+  fixture.settings.motion='full'; fixture.bots[0].status='working';
+  await application.evaluate(({BrowserWindow},state)=>BrowserWindow.getAllWindows()[0].webContents.send('ibot:state',state),fixture);
+  await page.waitForFunction(()=>document.documentElement.dataset.motion==='full');
+  await page.waitForTimeout(700);
+  const orbit=await page.locator('.bot-profile .bot-orbits-front').innerHTML();
+  assert(await page.locator('.bot-profile .bot-orbits-front path').count()>0,'Working avatar has depth-sorted orbit rings');
+  await page.waitForTimeout(250);
+  assert.notEqual(await page.locator('.bot-profile .bot-orbits-front').innerHTML(),orbit,'Working avatar rings rotate');
+  fixture.settings.motion='off';
+  await application.evaluate(({BrowserWindow},state)=>BrowserWindow.getAllWindows()[0].webContents.send('ibot:state',state),fixture);
+  await page.waitForFunction(()=>document.documentElement.dataset.motion==='off');
+  await page.waitForFunction(()=>document.querySelector('.bot-profile .bot-drawing')?.dataset.playing==='false');
+  const still=await page.locator('.bot-profile .bot-drawing').innerHTML();await page.waitForTimeout(250);
+  assert.equal(await page.locator('.bot-profile .bot-drawing').innerHTML(),still,'Motion Off freezes the SVG animation');
+  assert.equal(errors.length,0,errors.join('\n'));
+  console.log(JSON.stringify({passed:true,checks:['dark and light themes','settings','marketplace','inline bot settings','compact desktop fit','focused chat fit','keyboard-accessible detail tabs','routine toggles persist','shared files library','avatar motion and off setting','no renderer errors'],output},null,2));
+} finally {await application.close();}

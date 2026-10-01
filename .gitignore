@@ -1,0 +1,49 @@
+# Dependencies, caches, and generated application/package output
+node_modules/
+.next/
+out/
+dist/
+dist-desktop/
+dist-renderer/
+release/
+release-*/
+coverage/
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+
+# Local configuration and secret material; keep the placeholder template
+.env*
+!.env.example
+.npmrc
+.credentials*
+secrets/
+secrets*.json
+credentials*.json
+desktop-secrets.json*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# App profiles, snapshots, runtime credentials, and imported user files
+state.json*
+state.before-*.json
+runtime/
+app-data/
+userdata/
+user-data/
+imports/
+
+# Docker data belongs outside Git, including exported disks/volumes
+docker-data/
+docker-volumes/
+volumes/
+*.vhd
+*.vhdx
+
+# Test output, local logs, and historical/generated artifacts
+test-results/
+playwright-report/
+artifacts/
+*.log

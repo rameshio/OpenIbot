@@ -1,0 +1,71 @@
+{
+  "name": "ibot-desktop",
+  "productName": "I Bot",
+  "version": "0.5.1",
+  "description": "A desktop home for your team of persistent AI bots.",
+  "author": "I Bot",
+  "private": true,
+  "main": "dist-desktop/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/launch.mjs",
+    "desktop": "npm run build && npm start",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests-desktop/*.test.ts",
+    "test:desktop": "node scripts/test-desktop.mjs",
+    "package": "npm run build && electron-builder --win portable --x64",
+    "package:dir": "npm run build && electron-builder --win --dir --x64",
+    "test:providers": "node scripts/test-providers-desktop.mjs",
+    "test:options": "node scripts/test-options-desktop.mjs",
+    "test:avatars": "node scripts/test-avatars-desktop.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "^2.2.0",
+    "lucide-react": "^1.45.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "latest",
+    "electron": "44.4.1",
+    "electron-builder": "26.15.3",
+    "esbuild": "latest",
+    "tsx": "^4.23.13",
+    "typescript": "^6.0.3",
+    "vite": "8.3.0"
+  },
+  "build": {
+    "appId": "app.ibot.desktop",
+    "productName": "I Bot",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist-desktop/**",
+      "dist-renderer/**",
+      "assets/**",
+      "package.json",
+      "!node_modules/**"
+    ],
+    "extraResources": [
+      {
+        "from": "containers",
+        "to": "containers"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": "portable",
+      "icon": "assets/icon.ico",
+      "signExecutable": false,
+      "artifactName": "I-Bot-${version}-${arch}.${ext}"
+    }
+  }
+}

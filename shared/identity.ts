@@ -1,0 +1,7 @@
+import type {AvatarAccessory, AvatarExpression, AvatarShape, VoicePreferences} from './types';
+export const avatarExpressions: {id: AvatarExpression; name: string}[] = ['neutral','attentive','surprised','excited','happy','laughing','angry','sad','scared','suspicious','confused','curious','proud','shy','unimpressed','sleepy'].map(id=>({id:id as AvatarExpression,name:id[0].toUpperCase()+id.slice(1)}));
+export const avatarShapes: {id: AvatarShape; name: string}[] = [{id:'orbit',name:'Orbit'},{id:'pebble',name:'Drift'},{id:'capsule',name:'Dash'},{id:'prism',name:'Facet'},{id:'bloom',name:'Bloom'},{id:'sprout',name:'Sprig'},{id:'triangle',name:'Peak'},{id:'drop',name:'Dew'}];
+export const avatarAccessories: {id: AvatarAccessory; name: string}[] = [{id:'none',name:'None'},{id:'glasses',name:'Glasses'},{id:'headphones',name:'Headphones'},{id:'halo',name:'Halo'},{id:'cap',name:'Cap'},{id:'crown',name:'Crown'},{id:'sparkles',name:'Sparkles'}];
+export const avatarColors = ['#edae6a','#8acdb9','#99b1ef','#d99cc5','#b9cf83','#b49be4','#f1ede3','#a47b59','#d95f75','#e7c86f','#65ad83','#7e9399','#0a0a0c','#8b5e3c','#e8483f','#f08a24','#f0b429','#3ecf8e','#2fbfa0','#3b93f0','#8b5cf6','#e152b0','#a3a3a3','#f1efe9'];
+export const defaultVoice: VoicePreferences = {connectionId:'',transcriptionModel:'',voiceURI:'',rate:1,language:'auto',microphoneId:''};
+export const transcriptionProviders = ['openrouter','openai','groq','compatible','litellm'];

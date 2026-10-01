@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_menu xmlns="http://openbox.org/3.4/menu">
+  <menu id="root-menu" label="I Bot computer">
+    <item label="Browser"><action name="Execute"><command>chromium --no-sandbox --disable-dev-shm-usage --no-first-run</command></action></item>
+    <item label="Workspace files"><action name="Execute"><command>pcmanfm /workspace</command></action></item>
+    <item label="Terminal"><action name="Execute"><command>xterm -bg '#161922' -fg '#e1e6ed' -fa Monospace -fs 12</command></action></item>
+  </menu>
+</openbox_menu>

@@ -1,0 +1,133 @@
+import {_electron as electron} from 'playwright';
+import {createServer} from 'node:http';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+
+const root = path.resolve('.'), dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ibot-provider-ui-'));
+const output = path.join(root, 'artifacts', 'providers'); await fs.mkdir(output, {recursive: true});
+const calls = [], errors = [];
+let accountCatalogUnavailable = false;
+const server = createServer((request, response) => {
+  calls.push({url: request.url, auth: request.headers.authorization});
+  response.setHeader('content-type', 'application/json');
+  if (request.headers.authorization === 'Bearer rejected-fixture-key') {response.statusCode = 401; response.end(JSON.stringify({error: {message: 'rejected-fixture-key', type: 'authentication_error'}})); return;}
+  if (request.url === '/v1/key') {response.end(JSON.stringify({data: {is_management_key: false}})); return;}
+  if (accountCatalogUnavailable && request.url === '/v1/models/user') {response.statusCode = 401; response.end(JSON.stringify({error: {message: 'account catalog unavailable'}})); return;}
+  response.end(JSON.stringify({data: [{id: 'fixture/model-a', name: 'Fixture · Model A', supported_parameters: ['tools'], context_length: 128000}, {id: 'fixture/model-b', name: 'Fixture · Model B', supported_parameters: ['tools'], context_length: 256000}, {id: 'fixture/chat-model', name: 'Fixture · Chat', supported_parameters: []}]}));
+});
+await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+const baseUrl = `http://127.0.0.1:${server.address().port}/v1`;
+const env = {...process.env, IBOT_DATA_DIR: dataDir, IBOT_TEST: '1'}; delete env.ELECTRON_RUN_AS_NODE;
+let app;
+async function launch() {
+  app = await electron.launch({...(process.env.IBOT_TEST_EXECUTABLE ? {executablePath: process.env.IBOT_TEST_EXECUTABLE, args: []} : {args: [root]}), env, timeout: 60000});
+  const page = await app.firstWindow(); page.on('pageerror', error => errors.push(error.message));
+  await page.getByRole('heading', {name: 'What would you like to get done?'}).waitFor();
+  return page;
+}
+const stateOf = page => page.evaluate(() => window.ibot.invoke('state.get'));
+async function connect(page, provider, name, key, model) {
+  const dialog = page.getByRole('dialog', {name: 'Settings', exact: true});
+  await dialog.getByLabel('Provider', {exact: true}).selectOption(provider);
+  await dialog.getByLabel('Connection name', {exact: true}).fill(name);
+  await dialog.locator('.provider-endpoint summary').click();
+  await dialog.getByLabel('API endpoint', {exact: true}).fill(baseUrl);
+  await dialog.getByLabel('API key', {exact: true}).fill(key);
+  assert.equal(await dialog.getByRole('button', {name: 'Save & use connection'}).isEnabled(), false, 'Model selection is required for saving');
+  await dialog.getByRole('button', {name: 'Load models', exact: true}).click();
+  await dialog.getByLabel('Available models', {exact: true}).waitFor();
+  assert.equal((await stateOf(page)).settings.provider.model, provider === 'nvidia' ? '' : 'fixture/model-a', 'Discovery does not change the active connection');
+  await dialog.getByLabel('Search models', {exact: true}).fill('Model B');
+  assert.equal(await dialog.getByLabel('Available models').locator('option[value="fixture/model-b"]').count(), 1);
+  await dialog.getByLabel('Search models', {exact: true}).fill('');
+  await dialog.getByLabel('Available models', {exact: true}).selectOption(model);
+  await dialog.getByRole('button', {name: 'Save & use connection'}).click();
+  await dialog.getByText('Connection saved. Your bots will use it for their next run.').waitFor();
+  assert.equal(await dialog.getByLabel('API key', {exact: true}).count(), 0, 'The key input is cleared and the editor closes after saving');
+}
+try {
+  let page = await launch();
+  await page.getByRole('button', {name: 'Connect a model'}).click();
+  const dialog = page.getByRole('dialog', {name: 'Settings', exact: true});
+  assert(await dialog.getByLabel('Provider', {exact: true}).locator('option').count() >= 40);
+  await page.screenshot({path: path.join(output, 'provider-setup.png')});
+  await connect(page, 'nvidia', 'NVIDIA · Personal', 'nvidia-fixture-key', 'fixture/model-a');
+  await dialog.getByRole('button', {name: 'Add provider'}).click();
+  await connect(page, 'openrouter', 'OpenRouter · Work', 'router-fixture-key', 'fixture/model-b');
+  let state = await stateOf(page); assert.equal(state.settings.connections.length, 2); assert.equal(state.settings.provider.provider, 'openrouter');
+  assert(calls.some(call => call.url === '/v1/models/user' && call.auth === 'Bearer router-fixture-key'));
+  await page.screenshot({path: path.join(output, 'saved-connections.png')});
+  await dialog.getByRole('button', {name: 'Edit OpenRouter · Work', exact: true}).click();
+  await dialog.getByLabel('API key', {exact: true}).fill('rejected-fixture-key');
+  const failedCallCount = calls.length;
+  await dialog.getByRole('button', {name: 'Load models', exact: true}).click();
+  await dialog.getByRole('alert').waitFor();
+  assert((await dialog.getByRole('alert').innerText()).includes('OpenRouter rejected this API key (HTTP 401)'));
+  assert.equal(calls.length, failedCallCount + 1, 'Invalid keys do not load the public catalog');
+  assert.equal(calls.at(-1).url, '/v1/key');
+  assert.equal(await dialog.getByRole('status', {name: 'Key accepted', exact: true}).count(), 0);
+  assert.equal(await dialog.getByRole('button', {name: 'Open OpenRouter Keys', exact: true}).count(), 1);
+  await page.screenshot({path: path.join(output, 'openrouter-auth-error.png')});
+  await dialog.getByLabel('API key', {exact: true}).fill('"Bearer router-fixture-key"');
+  accountCatalogUnavailable = true;
+  await dialog.getByRole('button', {name: 'Load models', exact: true}).click();
+  await dialog.getByRole('status', {name: 'Key accepted', exact: true}).waitFor();
+  await dialog.getByText('Public model catalog', {exact: true}).waitFor();
+  assert(calls.slice(-3).every(call => call.auth === 'Bearer router-fixture-key'), 'Paste wrappers never produce a duplicate Bearer header');
+  assert.deepEqual(calls.slice(-3).map(call => call.url), ['/v1/key', '/v1/models/user', '/v1/models']);
+  assert.equal((await stateOf(page)).settings.connections.length, 2, 'Discovery and rejected drafts leave saved connections intact');
+  await page.screenshot({path: path.join(output, 'openrouter-verified-fallback.png')});
+  accountCatalogUnavailable = false;
+  await dialog.getByRole('button', {name: 'Cancel connection edit'}).click();
+  await dialog.getByRole('button', {name: 'Edit NVIDIA · Personal', exact: true}).click();
+  assert.equal(await dialog.getByLabel('API key', {exact: true}).inputValue(), '');
+  await dialog.getByRole('button', {name: 'Load models', exact: true}).click();
+  await dialog.getByRole('status').filter({hasText: 'Models loaded'}).waitFor();
+  assert.equal(calls.at(-1).auth, 'Bearer nvidia-fixture-key');
+  await dialog.getByLabel('API key', {exact: true}).fill('rejected-fixture-key');
+  await dialog.getByRole('button', {name: 'Load models', exact: true}).click();
+  await dialog.getByRole('alert').waitFor(); assert((await dialog.getByRole('alert').innerText()).includes('401'));
+  assert(!(await dialog.getByRole('alert').innerText()).includes('rejected-fixture-key'));
+  assert.equal((await stateOf(page)).settings.provider.provider, 'openrouter', 'Failed draft never switches the active provider');
+  await dialog.getByRole('button', {name: 'Cancel connection edit'}).click();
+  await page.keyboard.press('Escape');
+  await page.locator('.model-button').click();
+  const switcher = page.getByRole('dialog', {name: 'Choose a model', exact: true});
+  await switcher.getByRole('button', {name: 'Use fixture/model-b from NVIDIA · Personal', exact: true}).click();
+  state = await stateOf(page); assert.equal(state.settings.provider.provider, 'nvidia'); assert.equal(state.settings.provider.model, 'fixture/model-b');
+  await page.locator('.model-button').click();
+  await switcher.getByLabel('Search saved models').fill('OpenRouter');
+  assert.equal(await switcher.getByRole('button', {name: /from NVIDIA/}).count(), 0);
+  await switcher.getByLabel('Search saved models').fill('');
+  await page.screenshot({path: path.join(output, 'model-switcher.png')});
+  await page.keyboard.press('Escape'); assert.equal(await switcher.count(), 0);
+  assert.equal(await page.locator('.model-button').evaluate(element => element === document.activeElement), true);
+  await app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows()[0].setSize(960, 640));
+  await page.locator('.model-button').click();
+  const bounds = await switcher.boundingBox(); assert(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= 960 && bounds.y + bounds.height <= 640);
+  await page.screenshot({path: path.join(output, 'model-switcher-compact.png')});
+  await switcher.getByRole('button', {name: 'Manage providers'}).click();
+  await dialog.getByRole('button', {name: 'Add provider'}).click();
+  await dialog.getByLabel('Provider', {exact: true}).selectOption('compatible');
+  await dialog.getByLabel('API endpoint', {exact: true}).fill(baseUrl);
+  await dialog.getByRole('button', {name: 'Enter a model ID manually'}).click();
+  await dialog.getByLabel('Model ID', {exact: true}).fill('fixture/manual-model');
+  await dialog.getByRole('button', {name: 'Save & use connection'}).click();
+  await dialog.getByText('Connection saved. Your bots will use it for their next run.').waitFor();
+  await dialog.getByRole('button', {name: 'Remove Custom · OpenAI-compatible'}).click();
+  await dialog.getByRole('button', {name: 'Remove connection', exact: true}).click();
+  await dialog.getByText('Connection removed.', {exact: true}).waitFor();
+  assert.equal((await stateOf(page)).settings.connections.length, 2);
+  await page.keyboard.press('Escape');
+  await page.locator('.model-button').click();
+  await switcher.getByRole('button', {name: 'Use fixture/model-a from OpenRouter · Work', exact: true}).click();
+  await app.close(); app = null;
+  page = await launch(); state = await stateOf(page);
+  assert.equal(state.settings.connections.length, 2); assert.equal(state.settings.provider.provider, 'openrouter'); assert.equal(state.settings.provider.model, 'fixture/model-a');
+  const disk = await fs.readFile(path.join(dataDir, 'state.json'), 'utf8');
+  for (const key of ['nvidia-fixture-key', 'router-fixture-key', 'rejected-fixture-key']) {assert(!disk.includes(key)); assert(!JSON.stringify(state).includes(key));}
+  assert.deepEqual(errors, []);
+  console.log('PASS: 41 presets, discovery before selection, encrypted connections, endpoint-specific keys, OpenRouter key validation, explicit verified catalog fallback, paste normalization, actionable 401 errors, search, quick switching, manual local model, removal, compact layout and restart persistence. API responses use an explicit local test fixture; no paid model request was made.');
+} finally {if (app) await app.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve));}

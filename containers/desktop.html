@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>I Bot computer</title>
+<style>html,body,#screen{width:100%;height:100%;margin:0;overflow:hidden;background:#131720;font:14px system-ui;color:#dce3ef}#status{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2;background:#222c3ee8;border:1px solid #526379;padding:9px 15px;border-radius:9px}#status.connected{display:none}#screen canvas{outline:none}</style></head>
+<body><div id="status" role="status">Connecting to this bot's computer…</div><div id="screen"></div>
+<script type="module">
+import RFB from './core/rfb.js';
+const params = new URLSearchParams(location.search);
+const fragment = new URLSearchParams(location.hash.slice(1));
+const password = fragment.get('password') || '';
+history.replaceState(null, '', location.pathname + location.search);
+const viewOnly = params.get('view_only') === 'true' || params.get('view_only') === '1';
+const teaching = params.get('teach') === 'true' || params.get('teach') === '1';
+const status = document.getElementById('status');
+const screen = document.getElementById('screen');
+const rfb = new RFB(screen, `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/websockify`, {credentials:{password},shared:true});
+rfb.viewOnly = viewOnly;
+rfb.scaleViewport = true;
+rfb.resizeSession = false;
+rfb.clipViewport = false;
+rfb.addEventListener('connect',()=>{status.classList.add('connected');window.parent.postMessage({type:'ibot-desktop-connected'},'*')});
+rfb.addEventListener('disconnect',()=>{status.classList.remove('connected');status.textContent='Computer disconnected. Reopen it to reconnect.'});
+rfb.addEventListener('securityfailure',()=>{status.classList.remove('connected');status.textContent='Computer authentication failed. Close and reopen this computer.'});
+rfb.addEventListener('credentialsrequired',()=>rfb.sendCredentials({password}));
+const navigationKeys = new Set(['Enter','Tab','Escape','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End','PageUp','PageDown']);
+function record(event){window.parent.postMessage({type:'ibot-teach-event',event:{...event,time:Date.now()}},'*')}
+if(teaching && !viewOnly){
+  screen.addEventListener('mousedown',event=>{
+    const canvas=screen.querySelector('canvas');if(!canvas)return;const rect=canvas.getBoundingClientRect();
+    const x=(event.clientX-rect.left)/rect.width,y=(event.clientY-rect.top)/rect.height;
+    if(x>=0&&x<=1&&y>=0&&y<=1)record({kind:'click',x,y,button:event.button});
+  },true);
+  screen.addEventListener('keydown',event=>{if(navigationKeys.has(event.key)&&!event.ctrlKey&&!event.altKey&&!event.metaKey)record({kind:'key',key:event.key})},true);
+}
+</script></body></html>

@@ -1,0 +1,17 @@
+/* SVG silhouettes and projected eyes replace the earlier floating CSS faces. */
+.bot-avatar[data-renderer=svg] .bot-float { animation: none !important; }
+.bot-drawing { display: block; width: 100%; height: 100%; overflow: visible; }
+.bot-avatar[data-renderer=svg] .bot-face { transform: none; animation: none; }
+.bot-avatar[data-renderer=svg] .bot-accessory { color: var(--bot-eye); }
+.expression-picker { display: flex; flex-direction: column; gap: 8px; margin: 16px 0 6px; color: var(--muted); font-size: 11px; }
+.expression-picker select { width: 100%; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 9px; }
+.expression-picker small { font-size: 10px; line-height: 1.6; }
+.color-choices button { border: 1px solid color-mix(in srgb, var(--text) 20%, transparent); }
+.custom-activity { position: absolute; inset: 2%; border-radius: 50%; border: 1px solid transparent; }
+.bot-avatar[data-custom=true][data-status=working] .custom-activity,
+.bot-avatar[data-custom=true][data-status=thinking] .custom-activity { border-color: color-mix(in srgb,var(--bot-color) 70%,transparent); border-top-color: transparent; animation: botOrbit 3s linear infinite; }
+.bot-avatar[data-custom=true][data-status=waiting] .custom-activity:after,
+.bot-avatar[data-custom=true][data-status=error] .custom-activity:after { content: ''; position: absolute; width: 15%; height: 15%; top: 6%; right: 9%; border-radius: 50%; background: #2496e8; box-shadow: 0 0 0 2px var(--bg); }
+.bot-avatar[data-custom=true][data-status=error] .custom-activity:after { background: var(--red); }
+:root[data-motion=reduced] .custom-activity, :root[data-motion=off] .custom-activity { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .custom-activity { animation: none !important; } }
