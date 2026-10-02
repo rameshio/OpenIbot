@@ -143,3 +143,99 @@ For later feature work: first add a test that demonstrates the requested change;
 - Tests retain temporary profiles, screenshots, and potentially test Docker volumes for inspection. These are local runtime artifacts excluded from the baseline; no unrelated user containers/volumes were deleted.
 
 Files changed for this task: `.gitignore` and new `TESTING.md`, plus creation of Git metadata. Test/build execution refreshed ignored generated artifacts. Application source and dependency files were unchanged.
+
+## Effect authorization validation — 2026-10-01
+
+This section records the later authorization change; the baseline results above remain historical. The audit's four-transport approval limitation was reproduced before implementation. Media was rechecked and is user-only IPC, so no agent media tools were introduced. See `docs-desktop/effects.md` for the effect inventory, defaults, migration and enforcement boundaries.
+
+Tests were added first. The initial focused suite exposed missing authorization on mutations and missing grant/policy behavior. Later regressions were demonstrated before repair: computer dispatch lost its runtime guard, provisioning persisted a credential after revocation, and a null rule array allowed an invalid settings request. Each now passes. Test credentials are explicit local fixtures; live credentials and state were never printed.
+
+| Command | Pass | Fail | Skip | Result |
+|---|---:|---:|---:|---|
+| `npm test` | 53 | 0 | 2 | 55 tests; both skips require opt-in Docker |
+| Focused effects tests, included above | 20 | 0 | 0 | Grant bindings, lifecycle, precedence, revocation, unknown effects and transport coverage |
+| `npm run typecheck` | — | 0 | — | Exit 0 |
+| `npm run build` | — | 0 | — | Exit 0 |
+| `npm run test:desktop` | 9 checks | 0 | 0 | Development desktop smoke and restart persistence |
+| `npm run test:options` | 17 checks | 0 | 0 | Local provider/MCP fixtures; connector class selection, policy revision and restart persistence |
+| Opt-in `tsx --test tests-desktop/runtime-integration.test.ts` | 2 | 0 | 0 | Real Docker isolation, files, cancellation, restart and revoked credential provisioning; 80.40 seconds |
+| `git diff --check` | — | 0 | — | No whitespace errors |
+
+Docker checks used `IBOT_RUNTIME_INTEGRATION=1` only in their test shell. Desktop UI checks cleared runtime/dev-server/packaged-executable overrides, used disposable profiles, and exercised the built development application. The normal app's `state.json` SHA-256 still matched the baseline after testing. No dependencies were added or upgraded. No legacy Next.js source was changed.
+
+Files changed: new `desktop/effects.ts`, `desktop/engine-effects.ts`, `tests-desktop/effects.test.ts` and `docs-desktop/effects.md`; extended `desktop/engine.ts`, `desktop/main.ts`, `desktop/runtime.ts`, `desktop/providers.ts`, `desktop/connectors.ts`, `desktop/store.ts`, `shared/types.ts`, `renderer/Marketplace.tsx`, `renderer/Settings.tsx`, `tests-desktop/engine.test.ts`, `tests-desktop/runtime-integration.test.ts`, `scripts/test-options-desktop.mjs` and this file. Generated bundles/screenshots remain ignored. The original orchestration test retains its assertions and now explicitly allows the local effects it intends to exercise.
+
+Open risks: raw shell/browser/computer effects remain `execute` and cannot enforce semantic send/delete or network destinations without the planned egress gateway. Remote connector behavior must honor the user's assigned class. Existing connectors start unclassified and must be classified before agent use. Grants are process-local and expire; restart does not restore approval authority. Approval history is not an append-only audit log, and this change does not add credential brokering or exactly-once crash recovery. Packaged release parity and live account permissions were not tested. Existing OneDrive and baseline audit risks remain open except where this change explicitly addresses authorization.
+
+## Approval card validation — 2026-10-01
+
+Tests preceded the card follow-up: missing live presentation and host-side rejection of non-read Always allow were reproduced as failures; rendered component tests initially failed because the new extracted components were absent. The connector regression verifies restart persistence, changed schema revocation, and that a saved read confirmation cannot override a block. Existing policy precedence and exact grant matching in `desktop/effects.ts` were unchanged by this follow-up.
+
+| Command | Pass | Fail | Skip | Result |
+|---|---:|---:|---:|---|
+| `npm test` | 59 | 0 | 2 | 61 tests; opt-in Docker tests skipped |
+| Effects tests, included above | 23 | 0 | 0 | Presentation without disk payload, chat isolation, read confirmation/restart/schema/block coverage |
+| Rendered approval/message tests, included above | 3 | 0 | 0 | Class/purpose/target/raw args, all non-read classes, spend highlight, empty/attachment-only messages |
+| `npm run typecheck` | — | 0 | — | Exit 0 |
+| `npm run build` | — | 0 | — | Exit 0 |
+| `npm run test:desktop` | 9 checks | 0 | 0 | Existing desktop smoke |
+| `node scripts/test-approvals-desktop.mjs` | 9 checks | 0 | 0 | Actual cards, chat reuse/new chat, confirmed reads/restart/schema, spend and decline; local HTTP fixtures, no Docker |
+| `git diff --check` | — | 0 | — | No whitespace errors |
+
+New current script: `scripts/test-approvals-desktop.mjs`; build first, then run the command above. It creates a disposable profile, uses only local provider/MCP fixtures, and keeps screenshots under ignored `artifacts/approvals`. Read/spend screenshots were visually inspected. Docker, packaged release, options and live-provider checks were not rerun for this follow-up; earlier results are historical.
+
+Files changed in this follow-up: `desktop/engine.ts`, `desktop/engine-tools.ts`, `desktop/engine-effects.ts`, `shared/types.ts`, `renderer/App.tsx`, `renderer/premium.css`, `tests-desktop/effects.test.ts`, `docs-desktop/effects.md`, this file; new `renderer/ApprovalCard.tsx`, `renderer/MessageBody.tsx`, `tests-desktop/approval-ui.test.ts`, `scripts/test-approvals-desktop.mjs`. No dependencies were added. Prior authorization changes remain in the same uncommitted review tree.
+
+Open risks: model purpose is advisory and may be inaccurate; raw arguments remain authoritative and visible. Model-omitted purposes use a labeled host fallback. Always allow confirms a read contract for future arguments, persists a classification receipt, and issues exact expiring grants; a dishonest remote connector can violate its classification. Chat grants last at most 24 hours and still require identical arguments. Policies/classes/schema changes revoke read confirmations. Egress, credential brokering, append-only audit history, packaged parity and OneDrive risks remain open.
+
+## Connector classification validation — 2026-10-01
+
+New tests preceded implementation. The missing classification module/view failed first. Additional regression tests reproduced missing legacy definition metadata and ignored output-schema changes before those were fixed. Server hints now remain suggestions, legacy/unconfirmed/new definitions ask, and only explicit user confirmation binds a class to the current definition. The existing engine transport test now declines the unconfirmed approval and verifies no connector call happened; its remaining policy/transport assertions are unchanged.
+
+| Command | Pass | Fail | Skip | Result |
+|---|---:|---:|---:|---|
+| `npm test` | 64 | 0 | 2 | 66 tests; Docker remains opt-in |
+| Connector classification tests, included above | 4 | 0 | 0 | Hint distrust/forced ask, legacy reconfirmation, retained class, input/output schema/name/description revocation, new tools, stale confirmation and ambiguous catalog revocation |
+| Connector classification rendered UI test, included above | 1 | 0 | 0 | Suggestion/confirmation separation and explicit user control |
+| `npm run typecheck` | — | 0 | — | Exit 0 |
+| `npm run build` | — | 0 | — | Exit 0 |
+| `npm run test:options` | 17 checks | 0 | 0 | Marketplace confirmation and restart, plus existing options checks |
+| `node scripts/test-approvals-desktop.mjs` | 10 checks | 0 | 0 | Settings classification with zero tool calls; existing approval/grant/schema/spend checks |
+| `npm run test:desktop` | 9 checks | 0 | 0 | Existing desktop smoke |
+| `git diff --check` | — | 0 | — | No whitespace errors |
+
+Two UI-script selector failures were test maintenance: the Settings button is labeled App settings, and the new schema details added a nested summary. Both locators were corrected and their suites rerun. No product failure was hidden. UI checks use isolated profiles and local provider/MCP fixtures; the normal profile remains unchanged. The currently installed cached tool inventory was read from the normal profile without contacting Apify. It contains one connection and zero saved tool definitions; live server tools are UNKNOWN. See `docs-desktop/effects.md` for the inventory.
+
+Files changed in this follow-up: new `desktop/connector-effects.ts`, `renderer/ConnectorToolClasses.tsx`, `tests-desktop/connector-classification.test.ts`, `tests-desktop/connector-classification-ui.test.ts`; extended `desktop/effects.ts`, `desktop/engine-effects.ts`, `desktop/engine.ts`, `shared/types.ts`, `renderer/Settings.tsx`, `renderer/Marketplace.tsx`, `tests-desktop/effects.test.ts`, `scripts/test-options-desktop.mjs`, `scripts/test-approvals-desktop.mjs`, `docs-desktop/effects.md` and this file. No dependencies were added. Earlier authorization/card work remains in the same uncommitted tree.
+
+Open risks: classification depends on a user-confirmed contract and cannot verify a remote implementation. Unobserved server changes between explicit catalog refreshes remain UNKNOWN. The deliberately conservative provisional send class also enforces write blocks but does not implement network egress or cost enforcement. Legacy class records without a definition hash need reconfirmation. Docker, packaged release and real account permissions were not rerun for this classification follow-up; earlier Docker results remain historical. Existing OneDrive, credential and auditing risks remain open.
+
+## Repeated authorization card recheck — 2026-10-01
+
+Re-read `AUDIT.md` gap 3 and Control, then traced the current tool registry, effect classifier/authorizer, mutation/transport dispatch, policy changes, user actor envelope and media paths. The requested feature already exists, including the later scoped cards and conservative connector classifications. No missing card requirement was reproduced, so no duplicate implementation or behavior change was made. Media remains user-only IPC and unknown model effects remain denied.
+
+Fresh commands: `npm test` — 66 tests, 64 pass, 0 fail, 2 expected Docker skips; `npm run typecheck` — exit 0; `git diff --check` — exit 0. Build, desktop UI, Docker and live connectors were not rerun because this recheck changed only documentation. Their earlier results remain historical.
+
+Files changed for this recheck: `docs-desktop/effects.md` and `TESTING.md`. Application/test/dependency files were unchanged by this turn; earlier work remains uncommitted. Open risks remain egress control for execute effects, trust in remote connector behavior, credential isolation, durable audit/replay and OneDrive exposure. This recheck does not claim those separate audit gaps are resolved.
+
+## Approval-card and connector lifecycle verification — 2026-10-01
+
+Rechecked the six requested requirements against source and named tests instead of relying on an earlier screenshot or completion claim. Existing card presentation, grants and spend styling were verified. Added dedicated per-connector Refresh tools, saved connector catalog activity, startup discovery and once-per-connector-per-run discovery before execution. New lifecycle tests and invisible-message/Refresh UI assertions failed before implementation, then passed. Added simultaneous read/spend rendering and Activity rendering assertions. No dependencies changed; tests use isolated profiles and local fixtures without contacting installed remote connectors.
+
+| Command | Pass | Fail | Skip | Result |
+|---|---:|---:|---:|---|
+| `npm test` | 66 | 0 | 2 | 68 tests, including two new connector lifecycle tests; final repeat passed |
+| `npm run typecheck` | — | 0 | — | Exit 0 |
+| `npm run build` | — | 0 | — | Exit 0; fresh built renderer used for UI checks |
+| `npm run test:desktop` | 9 checks | 0 | 0 | No Docker required |
+| `npm run test:options` | 17 checks | 0 | 0 | Existing settings/marketplace regression checks |
+| `node scripts/test-approvals-desktop.mjs` | 11 checks | 0 | 0 | List-only Refresh, card fields/scopes, no bubble, restart/schema invalidation, spend, decline |
+| `git diff --check` | — | 0 | — | Checked before committing |
+
+One approval desktop attempt failed a numeric assertion and its retry passed. The test's send helper could return before the new IPC run started, allowing the idle check to observe the previous state. It now waits for the submitted user message before testing idle; the complete fixture passed again. The precise original failure cause was not captured, so attribution to that race remains an inference. Fresh `artifacts/approvals/read-card.png` was visually inspected and shows the current class, labeled purpose, target, raw arguments and scope buttons with no empty assistant bubble. Screenshots are ignored generated artifacts.
+
+Current verification changes: `desktop/engine.ts`, `shared/types.ts`, `renderer/ConnectorToolClasses.tsx`, `renderer/MessageBody.tsx`, `tests-desktop/approval-ui.test.ts`, `tests-desktop/connector-classification-ui.test.ts`, `tests-desktop/connector-classification.test.ts`, new `tests-desktop/connector-lifecycle.test.ts`, `scripts/test-approvals-desktop.mjs`, `docs-desktop/effects.md` and this document. Earlier authorization, grant, classification, UI and supporting tests in the current tree are included in the review branch commits rather than discarded. Implementation evidence for each requirement is recorded in `docs-desktop/effects.md`.
+
+Review branch: `review/authorization`, created from `main`. Core authorization/classification/discovery share engine and type changes and are committed together; renderer/UI checks and documentation are separate commits. No merge or push requested/performed. No secret, runtime state, dependency directory, build output or screenshot is staged.
+
+Open risks: packaged release and real connector/account behavior were not tested in this verification (**UNKNOWN**). Docker was not rerun; its two tests remain opt-in skips and earlier integration results are historical. Server implementation trust and changes after a run's first discovery remain outside these checks. Egress, credential isolation, durable audit/replay and OneDrive risks from the audit remain open.
