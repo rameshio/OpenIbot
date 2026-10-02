@@ -37,6 +37,17 @@ test('approval presentation exposes authoritative class, purpose, target and cur
   await f.engine.invoke('approval.resolve',{id:a.id,approved:false});await f.engine.waitForIdle();
 });
 
+test('settings replies preserve live approval arguments without saving them to disk',async t=>{
+ const args={path:'report.txt',content:'ephemeral-fixture-content',approvalPurpose:'Save the requested report.'};
+ const f=await fixture([tool('write_file',args)],true);t.after(()=>f.engine.shutdown());
+ await f.engine.invoke('chat.send',{chatId:f.chat.id,content:'Save report'});await waitFor(()=>f.engine.getState().approvals.some(a=>a.status==='pending'));
+ const result=await f.engine.invoke('settings.update',{theme:'light'}) as ReturnType<typeof f.engine.getState>;
+ const pending=result.approvals.find(a=>a.status==='pending')!;
+ assert.equal(pending.effect?.class,'write');assert.deepEqual(pending.presentation?.args,args);assert.equal(pending.presentation?.purpose,args.approvalPurpose);
+ assert(!(await readFile(path.join(f.options.dataDir,'state.json'),'utf8')).includes(args.content));
+ await f.engine.invoke('approval.resolve',{id:pending.id,approved:true});await f.engine.waitForIdle();assert.deepEqual(f.performed,['write']);
+});
+
 test('chat approval reuses exact calls only in its chat and always approval is rejected for writes',async t=>{
   const call=tool('write_file',{path:'report.txt',content:'report'}),f=await fixture([call,call],true);t.after(()=>f.engine.shutdown());
   await f.engine.invoke('chat.send',{chatId:f.chat.id,content:'Save report twice'});await waitFor(()=>f.engine.getState().approvals.some(a=>a.status==='pending'));
@@ -268,4 +279,22 @@ test('per-connector read/write rules, unknown tools and classification changes a
     changes=async()=>{await runner.invoke('connector.classify',{id:connector.id,name,effectClass:undefined});};
     await runner.invoke('chat.send',{chatId:f.chat.id,content:'Use the fixture'});await runner.waitForIdle();assert.equal(toolCalls,before+1,'Revocation during MCP initialization must prevent tools/call');
   }
+});
+
+test('declining an identical action prevents another approval in the same run',async t=>{
+ const call=tool('write_file',{path:'report.txt',content:'report'}),f=await fixture([call,call],true);t.after(()=>f.engine.shutdown());
+ await f.engine.invoke('chat.send',{chatId:f.chat.id,content:'Save report'});await waitFor(()=>f.engine.getState().approvals.some(a=>a.status==='pending'));
+ await f.engine.invoke('approval.resolve',{id:f.engine.getState().approvals.find(a=>a.status==='pending')!.id,approved:false});
+ await waitFor(()=>f.engine.getState().approvals.length>1||f.engine.getState().chats[0].status!=='running');
+ assert.equal(f.engine.getState().approvals.length,1);await f.engine.waitForIdle();assert.deepEqual(f.performed,[]);
+});
+
+test('read chat grants survive reference-data taint without weakening write grants',async()=>{
+ const {createEffectAuthorizer}=await import('../desktop/effects');let asks=0;
+ const settings=initialState().settings;
+ const authorizer=createEffectAuthorizer({settings:()=>settings,now:()=>Date.now(),request:async()=>{asks++;return {approved:true,scope:'chat'};}});
+ const read={id:'connector.call',transport:'connector',class:'read' as const,actor:'agent' as const,actorId:'chief',chatId:'chat',taskId:'task',target:'connector:inspect',args:{query:'records'},dataScope:['bot:chief']};
+ await (await authorizer.authorizeEffect(read)).execute(()=>{});await (await authorizer.authorizeEffect({...read,untrustedContext:true})).execute(()=>{});assert.equal(asks,1);
+ const write={...read,id:'file.write',transport:'file',class:'write' as const,target:'report.txt'};
+ await (await authorizer.authorizeEffect(write)).execute(()=>{});await (await authorizer.authorizeEffect({...write,untrustedContext:true})).execute(()=>{});assert.equal(asks,3);
 });

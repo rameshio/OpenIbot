@@ -36,7 +36,7 @@ export function createEffectAuthorizer(options:{settings:()=>AppSettings;now:()=
     const {grant,used,effect:original}=stored;
     return (!used||ownDispatch)&&grant.policyVersion===version()&&Date.parse(grant.expiresAt)>options.now()&&
       grant.effectClass===effect.class&&grant.target===effect.target&&grant.argsHash===hash&&
-      argsHash(grant.dataScope)===argsHash(effect.dataScope)&&original.untrustedContext===effect.untrustedContext&&original.id===effect.id&&original.transport===effect.transport&&original.actor===effect.actor&&original.actorId===effect.actorId&&
+      argsHash(grant.dataScope)===argsHash(effect.dataScope)&&(effect.class==='read'||original.untrustedContext===effect.untrustedContext)&&original.id===effect.id&&original.transport===effect.transport&&original.actor===effect.actor&&original.actorId===effect.actorId&&
       (grant.scope==='until'||(grant.scope==='chat'?original.chatId===effect.chatId:original.chatId===effect.chatId&&original.taskId===effect.taskId));
   }
   async function authorizeEffect(input:Effect) {

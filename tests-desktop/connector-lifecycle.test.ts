@@ -37,3 +37,11 @@ test('session start and first connector call per run relist tools, revoke change
  assert.equal(engine.getState().connectors[0].toolEffects?.inspect,undefined);assert(engine.getState().messages.some(m=>m.chatId===other.id&&/catalog changed/i.test(m.content)));
  assert((engine.getState().connectors[0] as any).catalogEvents.some((e:any)=>/catalog changed/i.test(e.summary)));await engine.invoke('chat.pause',{chatId:other.id});
 });
+
+test('unknown connector calls report the refreshed catalog and never create an approval or tools/call',async t=>{
+ const f=await fixture(t);await f.engine.invoke('settings.update',{autoReview:false,maxBots:1});await f.engine.invoke('provider.save',{provider:'compatible',model:'fixture',baseUrl:'http://localhost:1234/v1'});await f.engine.shutdown();
+ let turn=0;const engine=createEngine({...f.options,modelClient:async()=>({text:turn++===0?'':'Done',calls:turn===1?[{id:'unknown',name:'connector_call',arguments:{connectorId:f.connector.id,name:'invented_tool',arguments:{}}}]:[],inputTokens:0,outputTokens:0})});t.after(()=>engine.shutdown());await engine.ready;
+ const chat=await engine.invoke('chat.create',{}) as Chat;await engine.invoke('chat.send',{chatId:chat.id,content:'Inspect records'});await engine.waitForIdle();
+ assert.equal(engine.getState().approvals.length,0);assert(!f.methods.includes('tools/call'));
+ assert(engine.getState().messages.some(m=>m.chatId===chat.id&&m.content.includes('Available tools: inspect')&&m.content.includes('Refresh tools')));
+});

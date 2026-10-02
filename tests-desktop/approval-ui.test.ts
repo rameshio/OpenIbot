@@ -31,3 +31,11 @@ test('empty assistant tool-only messages render no article or bubble; attachment
  const html=renderToStaticMarkup(createElement(MessageBody,{message:{...message,attachments:[{id:'f',name:'report.txt',path:'/workspace/report.txt',size:1}]},bots:[],onFile:()=>{}}));
  assert(html.includes('report.txt'));assert(!html.includes('message-bubble'));
 });
+
+test('incomplete and legacy approvals show recovery guidance and no allow controls',()=>{
+ for(const broken of [{...approval,presentation:undefined},{...approval,effect:undefined}]){
+  const html=renderToStaticMarkup(createElement(ApprovalCard,{approval:broken,botName:'Chief',resolve:async()=>{}}));
+  assert(html.includes('Approval unavailable'));assert(html.includes('Pause'));assert(html.includes('Resume'));assert(html.includes('Dismiss request'));
+  assert(!html.includes('Allow once'));assert(!html.includes('Always allow this tool'));assert(!html.includes('UNCLASSIFIED'));
+ }
+});

@@ -6,6 +6,8 @@ export function ApprovalCard({approval,botName,resolve}:{approval:Approval;botNa
  const [busy,setBusy]=useState(false);
  const effectClass=approval.effect?.class,view=approval.presentation;
  const decide=async(args:Record<string,unknown>)=>{if(busy)return;setBusy(true);try{await resolve({id:approval.id,...args});}finally{setBusy(false);}};
+ const complete=!!view&&['read','write','send','spend','delete','upload','persist','execute','admin'].includes(effectClass??'')&&typeof view.target==='string'&&!!view.target.trim()&&Object.hasOwn(view,'args');
+ if(!complete)return <section className="approval-card" aria-label="Approval unavailable"><div><ShieldCheck size={20}/><strong>Approval unavailable</strong></div><p>This request is outdated or incomplete. Its action and arguments cannot be verified, so it cannot be approved.</p><p>Dismiss this request, then use Pause and Resume to request a fresh action. If this keeps happening after an update, quit I Bot completely and reopen it.</p><footer><button className="button" disabled={busy} onClick={()=>void decide({approved:false})}>Dismiss request</button></footer></section>;
  const always=effectClass==='read'&&view?.alwaysEligible;
  return <section className={'approval-card'+(effectClass==='spend'?' approval-spend':'')} aria-label={`${effectClass??'Unclassified'} approval`}>
   <div><ShieldCheck size={20}/><strong>{botName} needs your decision</strong><span className="approval-class">{effectClass??'Unclassified'}</span></div>

@@ -26,7 +26,7 @@ export interface EngineOptions {
   modelClient?: ModelClient; now?: ()=>Date; scheduler?: boolean;
   openExternal?: (url:string)=>Promise<void>; normalizeAvatar?: (data:string)=>string;
 }
-interface Run { profiles:Map<string,{settings:ProviderSettings;key:string;toolsSupported?:boolean}>; id:string; chatId:string; controller:AbortController; promise:Promise<void>; steps:number; maxSteps:number; activeBots:Set<string>; usedTools:boolean; settings:ProviderSettings; key:string; toolsSupported?:boolean; connectorChecks:Map<string,Promise<void>>; }
+interface Run { profiles:Map<string,{settings:ProviderSettings;key:string;toolsSupported?:boolean}>; id:string; chatId:string; controller:AbortController; promise:Promise<void>; steps:number; maxSteps:number; activeBots:Set<string>; usedTools:boolean; settings:ProviderSettings; key:string; toolsSupported?:boolean; connectorChecks:Map<string,Promise<void>>; deniedEffects:Set<string>; }
 const palettes = [{color:'#edae6a',avatar:'orbit'},{color:'#8acdb9',avatar:'prism'},{color:'#99b1ef',avatar:'pebble'},{color:'#d99cc5',avatar:'bloom'},{color:'#b9cf83',avatar:'sprout'},{color:'#b49be4',avatar:'capsule'}] as const;
 const str = (value:unknown, fallback='') => typeof value === 'string' ? value : fallback;
 const required = (value:unknown, label:string, max=100000) => { const text=str(value).trim(); if (!text || text.length>max) throw new Error(`${label} is required (maximum ${max} characters).`); return text; };
@@ -122,6 +122,7 @@ export function createEngine(options: EngineOptions) {
     const skill:Skill={id:existing?.id||randomUUID(),name:required(args.name??existing?.name,'Skill name',100),description:required(args.description??existing?.description,'Skill description',500),instructions:required(args.instructions??existing?.instructions,'Skill instructions',30000),botIds,source,installed:typeof args.installed==='boolean'?args.installed:existing?.installed??true,createdAt:existing?.createdAt||timestamp()};
     if(existing)state.skills[state.skills.indexOf(existing)]=skill;else state.skills.push(skill);publish();return skill;
   }
+  const deniedEffectKey=(effect:Effect)=>argsHash({id:effect.id,actorId:effect.actorId,target:effect.target,args:effect.args});
   const readToolKey=(effect:Omit<Effect,'args'>)=>effect.class==='read'&&effect.toolName&&effect.toolSchemaHash?argsHash({actor:effect.actor,actorId:effect.actorId,id:effect.id,transport:effect.transport,tool:effect.toolName,schema:effect.toolSchemaHash,connector:effect.connectorId?effect.target:undefined}):undefined;
   const authorizer=createEffectAuthorizer({journal,untrustedContext:effect=>!!state.chats.find(chat=>chat.id===effect.chatId)?.untrustedContext,settings:()=>state.settings,now:()=>now().getTime(),request:async(effect,policyVersion)=>{
     const run=runs.get(effect.chatId);if(!run||run.id!==effect.taskId)throw new Error('The task is no longer active.');check(run);
@@ -137,7 +138,7 @@ export function createEngine(options: EngineOptions) {
       const finish=(response:EffectApprovalDecision)=>{run.controller.signal.removeEventListener('abort',abort);approvals.delete(approval.id);presentations.delete(approval.id);resolve(response);};
       const abort=()=>finish({approved:false});approvals.set(approval.id,finish);run.controller.signal.addEventListener('abort',abort,{once:true});if(run.controller.signal.aborted)abort();
     });
-    check(run);bot.status='working';publish();return decision;
+    check(run);if(!decision.approved)run.deniedEffects.add(deniedEffectKey(effect));bot.status='working';publish();return decision;
   }});
   const authorizeEffect=authorizer.authorizeEffect;
   function policyChanged(){
@@ -195,8 +196,15 @@ export function createEngine(options: EngineOptions) {
   async function executeTool(call:ToolCall,bot:Bot,run:Run,depth:number,review=false):Promise<{content:string;image?:string}> {
     const args=structuredClone(call.arguments);check(run);bot.status='working';run.usedTools=true;publish();
     if('__invalid_arguments' in args)throw new Error('Tool arguments must be valid JSON.');
-    if(call.name==='connector_call'){const connector=state.connectors.find(c=>c.id===args.connectorId&&c.enabled&&(!c.botIds.length||c.botIds.includes(bot.id)));if(connector)await ensureRunCatalog(run,bot,connector);}
+    if(call.name==='connector_call'){
+      const connector=state.connectors.find(c=>c.id===args.connectorId&&c.enabled&&(!c.botIds.length||c.botIds.includes(bot.id)));
+      if(!connector)throw new Error('No enabled connector with that ID is assigned to this bot. Choose an available connector.');
+      await ensureRunCatalog(run,bot,connector);
+      const name=required(args.name,'Connector tool');
+      if(!connector.tools.some(tool=>tool.name===name))throw new Error(`Unknown connector tool after catalog refresh. Available tools: ${connector.tools.map(tool=>tool.name).slice(0,30).join(', ')||'(none)'}. Use an exact listed name. If a tool is missing, use Refresh tools in Marketplace for this connector.`);
+    }
     const effect={...toolEffect({...call,arguments:args},bot,run,state),untrustedContext:!!chatById(run.chatId).untrustedContext};
+    if(run.deniedEffects.has(deniedEffectKey(effect)))throw new Error('The user already denied this identical action in this run. Do not retry it.');
     if(review&&(effect.class!=='read'||effect.unconfirmedConnector))throw new Error('Verifier is read-only. This effect cannot execute during verification.');
     const authorization=await authorizeEffect(effect);check(run);
     const guard=()=>{check(run);authorization.validate();};
@@ -223,7 +231,7 @@ export function createEngine(options: EngineOptions) {
       case 'connector_call': {
         const connector=state.connectors.find(c=>c.id===args.connectorId&&c.enabled&&(!c.botIds.length||c.botIds.includes(bot.id)));
         if(!connector)throw new Error('No enabled connector with that ID is assigned to this bot.');
-        const name=required(args.name,'Connector tool');if(!connector.tools.some(t=>t.name===name))throw new Error('Unknown connector tool. Test the connector to refresh its catalog.');
+        const name=required(args.name,'Connector tool');if(!connector.tools.some(t=>t.name===name))throw new Error('The connector tool is no longer available. Use Refresh tools in Marketplace and request a fresh action.');
         result=await dispatch(()=>mcp(connector,'tools/call',{name,arguments:args.arguments||{}},run.controller.signal,()=>{check(run);authorization.validate();}));break;
       }
       case 'list_files':await workspace(run,bot);result=await dispatch(()=>options.runtime.listFiles(bot.id,workspacePath(args.path),guard));break;
@@ -311,7 +319,7 @@ export function createEngine(options: EngineOptions) {
     const history:ModelMessage[]=[];
     const toolsSupported=state.settings.connections.find(item=>item.id===(chosen?.id??state.settings.activeConnectionId))?.models.find(item=>item.id===settings.model)?.tools;
     const profiles=new Map<string,{settings:ProviderSettings;key:string;toolsSupported?:boolean}>();for(const bot of state.bots){const connection=state.settings.connections.find(item=>item.id===bot.modelConnectionId);if(connection)profiles.set(bot.id,{settings:structuredClone(connection),key:normalizeApiKey(secret(`provider:${connection.id}`)),toolsSupported:connection.models.find(model=>model.id===connection.model)?.tools});}
-    const run:Run={profiles,id:randomUUID(),chatId:chat.id,controller:new AbortController(),promise:Promise.resolve(),steps:0,maxSteps:state.settings.maxSteps,activeBots:new Set(),usedTools:false,settings,key,toolsSupported,connectorChecks:new Map()};
+    const run:Run={profiles,id:randomUUID(),chatId:chat.id,controller:new AbortController(),promise:Promise.resolve(),steps:0,maxSteps:state.settings.maxSteps,activeBots:new Set(),usedTools:false,settings,key,toolsSupported,connectorChecks:new Map(),deniedEffects:new Set()};
     journal.route(chat.id,run.id,primary.id,route.skillIds,route.reason,lastInput);
     if(!chat.botIds.includes(primary.id))chat.botIds.push(primary.id);
     runs.set(chat.id,run);owners.set(primary.id,chat.id);run.activeBots.add(primary.id);chat.status='running';publish();
@@ -429,7 +437,7 @@ export function createEngine(options: EngineOptions) {
         if(patch.rules!==undefined){if(!Array.isArray(patch.rules)||patch.rules.length>100)throw new Error('Invalid action rules.');state.settings.rules=patch.rules.map(r=>({id:str(r.id)||randomUUID(),action:required(r.action,'Action',200),policy:['ask','allow','block'].includes(r.policy)?r.policy:'ask'}));}
         if(typeof patch.autoReview==='boolean')state.settings.autoReview=patch.autoReview;
         if(patch.rules!==undefined||oldReview!==state.settings.autoReview)policyChanged();
-        publish();return store.snapshot();
+        publish();return snapshot();
       }
       case 'provider.save': {
         // Older callers update their matching active connection; the new editor explicitly adds/edits.
