@@ -7,6 +7,7 @@ export interface MemoryNote {id:string;scope:MemoryScope;owner:string;topic:stri
 type Context={botId:string;chatId?:string;projectId?:string};
 export interface MemoryEvidence {noteId:string;chunkIndex:number;scope:MemoryScope;origin:MemoryNote['origin'];validFrom:string;validTo?:string;content:string;}
 function chunks(text:string){const values:string[]=[];for(let start=0;start<text.length;){const end=Math.min(text.length,start+1600);values.push(text.slice(start,end));if(end===text.length)break;start=end-200;}return values;}
+const questionWords=new Set('the and for an is are was were to of in on at as my me it its our your we you they their that this these those with from can could would should will do does did have has had be been being about what which who when where why how please remember show find tell'.split(' '));
 function timestamp(value:string){if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)||!Number.isFinite(Date.parse(value)))throw new Error('Use an ISO timestamp for memory retrieval.');return new Date(value).toISOString();}
 export function rejectMemorySecrets(text:string){
  if(/(?:password|passwd|api[_ -]?key|access[_ -]?token|bearer|one[- ]time code|otp|card number|cvv)\s*[:=]\s*\S+|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,})\b/i.test(text))throw new Error('Memory may contain a secret. Remove credentials, one-time codes and payment details.');
@@ -42,7 +43,7 @@ export class MemoryStore{
  rollback(id:string,index:number){const note=this.revisions(id)[index];if(!note)throw new Error('Memory revision not found.');return this.save({...note,origin:'user'});}
  delete(id:string){const file=this.file(id);for(const name of [file,`${file}.revisions.json`])if(existsSync(name))unlinkSync(name);this.refresh();this.db.exec('PRAGMA wal_checkpoint(TRUNCATE); VACUUM; PRAGMA wal_checkpoint(TRUNCATE);');}
  retrieve(context:Context&{query:string;budget:number;asOf?:string}){
-  this.refresh();const words=context.query.match(/[\p{L}\p{N}_]{2,}/gu)?.slice(0,12)??[],asOf=context.asOf?timestamp(context.asOf):this.now().toISOString();
+  this.refresh();const words=[...new Set((context.query.match(/[\p{L}\p{N}_]{2,}/gu)??[]).map(word=>word.toLowerCase()).filter(word=>!questionWords.has(word)))].slice(0,12),asOf=context.asOf?timestamp(context.asOf):this.now().toISOString();
   const budget=Number.isFinite(context.budget)?Math.max(0,Math.min(12000,Math.floor(context.budget))):0;
   const entries:MemoryEvidence[]=[];let text='';
   const rows=words.length&&budget>0?this.db.prepare("SELECT id,chunkIndex,topic,content,scope,origin,validFrom,validTo FROM chunks WHERE chunks MATCH ? AND (scope='user' OR (scope='bot' AND owner=?) OR (scope='chat' AND owner=?) OR (scope='project' AND owner=?)) AND validFrom<=? AND (validTo='' OR validTo>?) ORDER BY rank LIMIT 30").all(words.map(word=>`\"${word}\"`).join(' OR '),context.botId,context.chatId??'',context.projectId??'',asOf,asOf):[];

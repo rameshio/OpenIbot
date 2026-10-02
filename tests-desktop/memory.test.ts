@@ -31,6 +31,7 @@ test('retrieval selects bounded relevant chunks and abstains when nothing matche
  memory.save({scope:'bot',owner:'chief',topic:'Unrelated',content:'Favorite breakfast is oatmeal.',origin:'user'});
  const retrieved=memory.retrieve({botId:'chief',query:'turbine serial',budget:2200});assert(retrieved.text.includes('ALPHA-7392'));assert(retrieved.text.length<=2200);assert(!retrieved.text.includes('oatmeal'));assert(retrieved.entries.every(entry=>entry.noteId&&Number.isInteger(entry.chunkIndex)));
  const missing=memory.retrieve({botId:'chief',query:'astronaut',budget:6000});assert.equal(missing.text,'');assert.equal(missing.reason,'no-match');
+ assert.equal(memory.retrieve({botId:'chief',query:'What is my astronaut training plan?',budget:6000}).text,'','Common question words must not retrieve unrelated breakfast notes');
  assert.equal(memory.retrieve({botId:'chief',query:'turbine',budget:NaN}).text,'');memory.close();
 });
 
