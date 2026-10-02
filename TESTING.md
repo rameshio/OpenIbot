@@ -355,3 +355,25 @@ tests-desktop/routing.test.ts
 tests-desktop/runtime-integration.test.ts
 tests-desktop/verification.test.ts
 ```
+
+
+## Screenshot follow-up: incomplete approval and connector retries — October 2, 2026
+
+The supplied screenshot shows an unclassified approval with no presentation/arguments, unknown connector tool messages, and a declined action followed by another request. The exact live-process cause is UNKNOWN: current authorization denies unclassified effects before requesting approval, and startup invalidates old pending requests. An older running main process paired with newer renderer files is a plausible explanation, not established evidence. No production state, credentials or connector tools were inspected/called.
+
+Confirmed and corrected in source:
+
+- `settings.update` returned the raw stored snapshot, dropping temporary approval presentation. It now returns the same decorated snapshot as state.get/events. Raw arguments remain process-only and are absent from state.json.
+- An identical confirmed read reused for a chat lost its grant when successful reference retrieval marked the chat untrusted. Read grants now tolerate that flag transition; writes still require a new grant. Exact arguments, class, policy, target, scopes and expiry remain checked.
+- Identical denied actions asked again within a run. A run-local fingerprint set now rejects that retry; it is discarded with the run. Changed requests and new runs remain distinct. This is not a general proof against equivalent actions through different tools.
+- Invalid connector calls now validate against the freshly listed catalog before requesting an action approval. Errors identify available tool names and direct users to Refresh tools. Unknown tools are never called or auto-confirmed.
+- Legacy/incomplete cards show Approval unavailable and recovery guidance with only Dismiss request. Missing arguments or class cannot enable Allow controls; arguments are never reconstructed or invented.
+
+Five new regression tests failed before their fixes, then passed. The desktop approval fixture initially failed its repeated-read count (1 versus 2); focused unit tests separately proved the taint/grant defect. A clean-checkout retry also showed its idle helper returning before the run finished (a subsequent snapshot was still running). The helper now explicitly awaits resolved IPC state before testing the condition; the exact cross-context Promise mechanism is UNKNOWN. The fixture now expects no second approval for an identical denied call. Final shared-tree unit count: 105 total, 103 pass, 0 fail, 2 Docker skips; type checking and build pass. The isolated tracked snapshot at `be27b30` passes 101 tests total: 99 pass, 0 fail, 2 Docker skips; type checking/build pass. Both snapshots exclude production profiles. The shared tree additionally includes separate uncommitted avatar tests. No dependencies changed; Docker was not rerun because execution/container code is unchanged. Existing bundle-size warning remains.
+
+Files changed: desktop/engine.ts, desktop/effects.ts, renderer/ApprovalCard.tsx, tests-desktop/effects.test.ts, tests-desktop/approval-ui.test.ts, tests-desktop/connector-lifecycle.test.ts, scripts/test-approvals-desktop.mjs and this document. Separate avatar/App/MessageBody edits are preserved outside these commits. Branch: review/authorization; no push or merge.
+
+To load the fixed main process, quit I Bot completely (including the tray) and reopen the updated build. Renderer reload alone does not replace the running engine. A separately installed executable requires a rebuilt package; packaged/live-provider verification is UNKNOWN.
+
+
+Final screenshot follow-up UI verification: `node scripts/test-approvals-desktop.mjs` passed all **11 checks** in the isolated tracked checkout with the `d3caeff` fixture and `be27b30` application build. The read card screenshot was visually inspected: class, labeled model-generated purpose, actual target, raw arguments and all eligible scopes are visible. The final fixture waits for resolved engine state and then card removal; both earlier timing failures are recorded above. The shared working checkout also passed this fixture. No real connector tool or provider was called. Committed-patch whitespace check passed. Build output in the workspace was refreshed; the user's already-running engine was not forcibly stopped or modified.
