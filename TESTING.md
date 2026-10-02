@@ -262,7 +262,7 @@ Open risks: packaged release and real-provider specialist creation were not exer
 
 ## Research report implementation — October 2, 2026
 
-Scope: the report-selected security/recovery stage, scoped Markdown memory and explicit routing. Source baseline: `a8e0694` on `review/authorization`; implementation changes are recorded in subsequent commits on that branch. No dependency manifest or lockfile changes. Tests use isolated temporary profiles; production credentials/profile/volumes were not opened or pruned. The workspace image tag was rebuilt for the new Docker containment layout.
+Scope: the report-selected security/recovery stage, scoped Markdown memory and explicit routing. Source baseline: `a8e0694` on `review/authorization`; implementation changes are recorded in subsequent commits on that branch. No dependency additions/upgrades or lockfile changes. The research follow-up adds only an offline evaluation script to package.json. Tests use isolated temporary profiles; production credentials/profile/volumes were not opened or pruned. The workspace image tag was rebuilt for the new Docker containment layout.
 
 | Command/check | Final result | Notes |
 | --- | --- | --- |
@@ -280,3 +280,78 @@ Tests were added before the corresponding core implementations. Initial missing-
 Observed failures during iteration: Docker default subnet pools were exhausted (environment allocation issue); explicit small internal subnets resolved allocation. The initial internal-network viewer had no reachable published ingress (implementation failure); the fixed-target gateway viewer solved it. The first note rollback UI check read the old form before its asynchronous refresh (test synchronization failure); waiting for completed form refresh fixed it, and the subsequent desktop runs passed. These failures are not hidden in the final pass counts.
 
 The Docker-enabled full desktop teaching script, packaged executable, all action crash boundaries, ten-minute real-time teaching cap, network/VPN overlap on other machines, and production vendor endpoints were not exercised for this change: UNKNOWN. Docker remains opt-in in npm test. Existing legacy browser/Next.js tests remain historical and their port-3000 config does not test the current Electron app. See docs-desktop/research-implementation.md for migration guidance and open risks; passing these targeted tests does not establish the complete report architecture.
+
+
+## Research follow-up and clean review snapshot — October 2, 2026
+
+Canonical validation used a Git archive of `32f0ec2` in `C:\Users\rames\AppData\Local\Temp\ibot-review-validation-uaushj38`, with the existing node_modules linked in; no dependency installation or production profile access. `3893d8b` differs only by normalizing the committed App.tsx line endings. Documentation changes after it do not change behavior. These clean-snapshot counts supersede shared-working-tree counts for this delivery: another task is editing avatars in the same checkout.
+
+| Command | Pass | Fail | Skip | Result |
+| --- | ---: | ---: | ---: | --- |
+| `npm test` | 94 | 0 | 2 | 96 cases in tracked snapshot; Docker is opt-in |
+| `npm run typecheck` | — | 0 | — | Exit 0 |
+| `npm run build` | — | 0 | — | Exit 0; existing >500 kB bundle warning |
+| `npm run test:desktop` | 12 checks | 0 | 0 | Real Electron, isolated profile; persistence, Windows safeStorage, note UI and Activity |
+| `npm run test:options` | 17 checks | 0 | 0 | Isolated local fixtures; settings, connector confirmation, voice and restart |
+| `npm run eval:memory` | 10 | 0 | 0 | Synthetic retrieval only; same harness against `ace4345` passed 5/10 |
+| `python -m unittest tests-desktop/egress_proxy_test.py` | 5 | 0 | 0 | Rerun against tracked snapshot |
+| `git diff --check a8e0694 HEAD` | — | 0 | — | Committed patch checked in actual repository |
+
+The two real Docker integration tests passed earlier in this implementation stage (see preceding table); runtime code did not change during the memory follow-up. They were not rerun in the clean snapshot. No live provider, private connector or externally billed job was called during the research evaluation.
+
+Tests added before retrieval fixes demonstrated missing-evidence fallback, oversized source-note loss, incorrect historical retrieval and unsafe non-finite budgets. A later regression showed common question words retrieving unrelated notes; filtering those words fixed it. The first evaluation-module import failed because top-level await was incompatible with the test loader; the entry point now uses an explicit promise and both the unit gate and CLI pass. The first clean snapshot failed type checking/build because App.tsx had an avatar import whose files belonged to concurrent work. The committed import/provider wrapper was removed without overwriting the working file; clean validation then passed. The Git-only snapshot correction initially introduced CRLF blob line endings; normalization resolved the whitespace check. These were implementation/test failures, not dismissed as flaky.
+
+Source notes now use overlapping original-text chunks, time and scope filtering before ranking, provenance, bounded evidence and no unrelated fallback. Automatically retrieved notes activate the authorization context guard before any model-controlled write. A ten-case local check is not LongMemEval answer accuracy, a security proof or a measured production recall result. Primary sources and decisions are in docs-desktop/research-decisions.md.
+
+Open risks: host provider/MCP traffic is outside the container proxy; approved GUI actions can access desktop browser state; no orphan-run watchdog/full transactional run database; secret detection remains heuristic; memory lexical recall and character/token estimates remain limited. Packaged release, real vendor endpoints, complete crash-boundary coverage and the real-time teaching cap remain UNKNOWN. Separate avatar work is preserved and excluded from these commits. No merge or push.
+
+Changed-file inventory for this report/research delivery, relative to `a8e0694`:
+
+```text
+.gitignore
+TESTING.md
+containers/Dockerfile
+containers/chromium-egress.conf
+containers/egress_proxy.py
+desktop/action-journal.ts
+desktop/desktop-broker.ts
+desktop/effects.ts
+desktop/engine-effects.ts
+desktop/engine-tools.ts
+desktop/engine.ts
+desktop/main.ts
+desktop/memory.ts
+desktop/routing.ts
+desktop/runtime.ts
+desktop/store.ts
+desktop/verification.ts
+docs-desktop/effects.md
+docs-desktop/research-decisions.md
+docs-desktop/research-implementation.md
+package.json
+renderer/ActivityPanel.tsx
+renderer/App.tsx
+renderer/BotDetails.tsx
+renderer/Computer.tsx
+renderer/Dialogs.tsx
+renderer/MemoryPanel.tsx
+renderer/NetworkPolicy.tsx
+renderer/Settings.tsx
+scripts/eval-memory.d.mts
+scripts/eval-memory.mjs
+scripts/test-desktop.mjs
+shared/network-policy.ts
+shared/types.ts
+tests-desktop/action-journal.test.ts
+tests-desktop/authorization-context.test.ts
+tests-desktop/desktop-broker.test.ts
+tests-desktop/egress_proxy_test.py
+tests-desktop/engine.test.ts
+tests-desktop/memory-evaluation.test.ts
+tests-desktop/memory.test.ts
+tests-desktop/network-policy.test.ts
+tests-desktop/recovery.test.ts
+tests-desktop/routing.test.ts
+tests-desktop/runtime-integration.test.ts
+tests-desktop/verification.test.ts
+```
