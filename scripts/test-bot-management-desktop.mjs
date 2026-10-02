@@ -1,0 +1,23 @@
+import {_electron as electron} from 'playwright';
+import {createServer} from 'node:http';
+import {mkdtemp} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const root=path.resolve('.'),dataDir=await mkdtemp(path.join(os.tmpdir(),'ibot-management-ui-'));let targetId;
+const advertised=new Set();
+const server=createServer(async(req,res)=>{let body='';for await(const c of req)body+=c;const request=JSON.parse(body);for(const tool of request.tools??[])advertised.add(tool.function?.name);const done=request.messages.some(m=>m.role==='tool');const user=request.messages.filter(m=>m.role==='user').at(-1)?.content??'';const name=user.includes('Remove')?'delete_bots':user.includes('Restore')?'restore_bot':'update_bot';const args=name==='delete_bots'?{all:true,approvalPurpose:'Remove the specialists requested by the user.'}:name==='restore_bot'?{botId:targetId,approvalPurpose:'Restore the removed specialist.'}:{botId:targetId,name:'Spider-Man',approvalPurpose:'Rename the specialist as requested.'};res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({choices:[{message:done?{role:'assistant',content:'Fixture completed.'}:{role:'assistant',content:'',tool_calls:[{id:'manage',type:'function',function:{name,arguments:JSON.stringify(args)}}]}}]}));});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const base=`http://127.0.0.1:${server.address().port}/v1`;
+const env={...process.env,IBOT_DATA_DIR:dataDir,IBOT_TEST:'1'};delete env.ELECTRON_RUN_AS_NODE;delete env.IBOT_DEV_URL;let app;
+try{
+ app=await electron.launch({...(process.env.IBOT_TEST_EXECUTABLE?{executablePath:process.env.IBOT_TEST_EXECUTABLE,args:[]}:{args:[root]}),env,timeout:60000});const page=await app.firstWindow();page.setDefaultTimeout(20000);await page.getByRole('heading',{name:'What would you like to get done?'}).waitFor();
+ targetId=(await page.evaluate(()=>window.ibot.invoke('bot.create',{name:'Specialist',role:'Research'}))).id;
+ await page.evaluate(base=>window.ibot.invoke('provider.save',{provider:'compatible',model:'fixture',baseUrl:base}),base);await page.evaluate(()=>window.ibot.invoke('settings.update',{maxBots:1}));
+ const idle=async()=>{for(let i=0;i<200;i++){if(await page.evaluate(async()=>{const s=await window.ibot.invoke('state.get');return s.chats.every(c=>c.status!=='running');}))return;await page.waitForTimeout(100);}assert.fail('Run did not finish');};
+ const send=async text=>{await page.keyboard.press('Control+n');await page.getByRole('textbox',{name:'Message your bot'}).fill(text);await page.getByRole('button',{name:'Send message',exact:true}).click();};
+ await send('Rename the specialist to Spider-Man');let card=page.getByRole('region',{name:'write approval'});await card.waitFor();assert((await card.getByLabel('Raw arguments').innerText()).includes('Spider-Man'));await card.getByRole('button',{name:'Allow once',exact:true}).click();await idle();assert.equal(await page.evaluate(id=>window.ibot.invoke('state.get').then(s=>s.bots.find(b=>b.id===id)?.name),targetId),'Spider-Man');
+ await send('Remove all specialists');card=page.getByRole('region',{name:'delete approval'});await card.waitFor();assert((await card.getByLabel('Raw arguments').innerText()).includes(targetId));assert((await card.getByLabel('Raw arguments').innerText()).includes('Spider-Man'));assert.equal(await card.getByRole('button',{name:'Always allow this tool',exact:true}).count(),0);await card.getByRole('button',{name:'Allow once',exact:true}).click();await idle();let state=await page.evaluate(()=>window.ibot.invoke('state.get'));assert.equal(state.bots.length,1);assert(state.archivedBots.some(b=>b.id===targetId));assert(!state.messages.some(m=>/Docker Desktop is unavailable|operation timed out|Unknown agent tool/.test(m.content)));
+ await page.evaluate(()=>window.ibot.invoke('settings.update',{maxBots:2}));await send('Restore the removed specialist');card=page.getByRole('region',{name:'admin approval'});await card.waitFor();await card.getByRole('button',{name:'Allow once',exact:true}).click();await idle();state=await page.evaluate(()=>window.ibot.invoke('state.get'));assert.equal(state.bots.find(b=>b.id===targetId)?.name,'Spider-Man');
+ for(const name of ['list_bots','update_bot','delete_bots','restore_bot','set_main_bot'])assert(advertised.has(name),name);
+ console.log(JSON.stringify({passed:true,checks:['management tools advertised to model','rename through write card','delete card names exact targets','approval removes only specialists','history remains recoverable','restore through admin card']}));
+}finally{if(app)await app.close();server.closeAllConnections();await new Promise(r=>server.close(r));}
