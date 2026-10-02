@@ -150,3 +150,18 @@ This verification supersedes the earlier card-completion claim for the six requi
 All named tests are in `tests-desktop/approval-ui.test.ts`, `tests-desktop/effects.test.ts`, `tests-desktop/connector-lifecycle.test.ts` and `tests-desktop/connector-classification-ui.test.ts`. Lifecycle fixtures record MCP methods and prove listing does not execute tools, definitions reach disk, restart refreshes, each new run refreshes once, and changed tools wait for approval before dispatch. The rendered classification test checks the Activity view. Startup discovery is a system lifecycle action on enabled saved connections; per-run discovery is authorized as a read catalog effect before the separately classified tool call. Activity summaries contain no arguments or credentials and retain the most recent 50 connector events (the view shows 10).
 
 Fresh validation: 68 tests, 66 pass, zero fail, two opt-in Docker skips; build/typecheck pass; desktop smoke 9 checks, options 17 checks, approval fixture 11 checks. The screenshots in ignored `artifacts/approvals/` show the current built renderer using disposable local fixtures. Installed packaged builds and real remote connector behavior are **UNKNOWN** for this verification. Automatic discovery reduces the stale-definition window but cannot detect a server change after its first-call refresh within a run.
+
+## Research upgrade extensions
+
+| Effect ID | Tool or operation | Transport | Class | Actor | Enforcement |
+| --- | --- | --- | --- | --- | --- |
+| `memory.search` | `search_memory` | Host Markdown/SQLite FTS | read | agent | Classified dispatcher, scoped retrieval |
+| `memory.note.write` | `save_memory_note` | Host Markdown/revisions/FTS | persist | agent | Classified dispatcher, bot/chat scope validation, journal |
+| `memory.list`, `memory.save`, `memory.revisions`, `memory.rollback`, `memory.delete` | Notes panel | Trusted IPC | read / persist / delete | user | Sender and input validation; direct user command |
+| `activity.get`, `activity.reconcile` | Activity panel | Trusted IPC/SQLite | read / admin | user | Sender checks; only uncertain actions reconciled |
+| `bot.takeover` | Computer control/teaching/terminal/file-edit entry | Trusted IPC | admin | user | Pauses current bot owner before user operation |
+| Bot host policy edit | Settings → Computers | Trusted IPC/host policy file | admin | user | Exact-host normalization, policy-version invalidation, runtime policy update |
+
+Browser/computer execution now uses a typed main-process broker into the isolated desktop sidecar in production; fake runtimes retain their existing test fallback. Raw execution is still class execute. Network containment applies to container traffic; host provider/MCP traffic is outside this destination proxy.
+
+After untrusted tool content enters a chat, subsequent agent non-read effects ask even under broad allow rules. Blocks still win, and pending leases recheck context before dispatch. This chat-level conservative guard is not full information-flow tracking. The verifier is restricted to confirmed read effects and cannot use raw execution tools. See research-implementation.md for exact residual limitations.

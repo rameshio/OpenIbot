@@ -258,3 +258,25 @@ Tests were written and run first: both failed for missing main-bot state/navigat
 Files changed: `desktop/engine.ts`, `desktop/main.ts`, `desktop/store.ts`, `shared/types.ts`, new `shared/bots.ts`, `renderer/App.tsx`, `renderer/Dialogs.tsx`, `renderer/premium.css`, new `renderer/BotNavigation.tsx`, `tests-desktop/main-bot.test.ts`, `tests-desktop/bot-navigation-ui.test.ts`, `scripts/test-bots-desktop.mjs`, `docs-desktop/effects.md` and this file. No dependencies were added. Generated video-review frames and the visually inspected `artifacts/bots/main-bot.png` are ignored; the normal user profile was not modified by the isolated tests.
 
 Open risks: packaged release and real-provider specialist creation were not exercised in this follow-up (**UNKNOWN**); the existing local orchestration fixture passed. Main-bot selection changes the default recipient, not permissions or a bot's saved specialist instructions. The original recording's other menus (such as deletion, unread and hide) are outside the requested name/create/main-bot scope. Existing audit risks remain open. Changes stay on `review/authorization`; no merge or push.
+
+
+## Research report implementation — October 2, 2026
+
+Scope: the report-selected security/recovery stage, scoped Markdown memory and explicit routing. Source baseline: `a8e0694` on `review/authorization`; implementation changes are recorded in subsequent commits on that branch. No dependency manifest or lockfile changes. Tests use isolated temporary profiles; production credentials/profile/volumes were not opened or pruned. The workspace image tag was rebuilt for the new Docker containment layout.
+
+| Command/check | Final result | Notes |
+| --- | --- | --- |
+| `npm test` | 92 cases: 90 pass, 0 fail, 2 Docker skips | Includes existing tests and new journal, crash, recovery, verifier, context, memory, routing and per-bot-profile coverage |
+| `npm run typecheck` | Pass | Final runtime/type changes checked |
+| `npm run build` | Pass | Existing >500 kB renderer bundle warning remains |
+| `npm run test:desktop` | Pass, 12 named checks | Electron startup/restart, real Windows safeStorage synthetic encryption, note edit/rollback/delete and Activity UI |
+| `npm run test:options` | Pass, 17 named checks | Existing appearance, model/media, connector classification, voice, export and restart flows |
+| `IBOT_RUNTIME_INTEGRATION=1 npx tsx --test tests-desktop/runtime-integration.test.ts` | 2 pass, 0 fail | Real Docker, ~43.6 seconds; separate computers, file bridge, profiles, credentials, screenshot, command cancellation, exact-host HTTPS and revocation, DNS/direct-route denial |
+| `python -m unittest tests-desktop/egress_proxy_test.py` | 5 pass, 0 fail | Malformed/default denial, exact hosts, private/metadata/mixed addresses, DNS pinning, port/authority validation and log fields |
+| Electron Node SQLite probe | Pass | Actual Electron process reported Node 24.21.0 and built-in DatabaseSync; no SQLite dependency added |
+
+Tests were added before the corresponding core implementations. Initial missing-module failures and a pre-isolation credential-file assertion established failures before those implementations. The targeted verifier test initially completed incorrectly instead of pausing, then passed after read-only/verdict enforcement. The taint persistence test initially failed to receive an approval, then passed after context enforcement. The per-bot model test initially used the global profile, then passed after profile binding.
+
+Observed failures during iteration: Docker default subnet pools were exhausted (environment allocation issue); explicit small internal subnets resolved allocation. The initial internal-network viewer had no reachable published ingress (implementation failure); the fixed-target gateway viewer solved it. The first note rollback UI check read the old form before its asynchronous refresh (test synchronization failure); waiting for completed form refresh fixed it, and the subsequent desktop runs passed. These failures are not hidden in the final pass counts.
+
+The Docker-enabled full desktop teaching script, packaged executable, all action crash boundaries, ten-minute real-time teaching cap, network/VPN overlap on other machines, and production vendor endpoints were not exercised for this change: UNKNOWN. Docker remains opt-in in npm test. Existing legacy browser/Next.js tests remain historical and their port-3000 config does not test the current Electron app. See docs-desktop/research-implementation.md for migration guidance and open risks; passing these targeted tests does not establish the complete report architecture.
