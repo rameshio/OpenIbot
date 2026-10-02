@@ -1,3 +1,4 @@
+import {MemoryPanel} from './MemoryPanel';
 import {useEffect, useMemo, useState} from 'react';
 import {ArrowUpRight, Check, ChevronRight, Clock, FileText, Folder, Monitor, Play, Plus, Settings} from 'lucide-react';
 import type {AppState, Attachment, Bot, DesktopAPI, Routine, RuntimeStatus, WorkspaceInfo} from '../shared/types';
@@ -23,6 +24,7 @@ function scheduleLabel(routine: Routine) {
 
 export function BotDetails({bot, state, invoke, routines, workspace, runtime, screenshot, busy, status, onSettings, onRuntimeSettings, onMarketplace, onRoutine, onRunRoutine, onToggleRoutine, onFile, onComputer}: Props) {
   const [tab, setTab]=useState<Tab>('details');
+  const [memoryOpen,setMemoryOpen]=useState(false);
   const [appearance,setAppearance]=useState(false);
   useEffect(()=>{setTab('details');setAppearance(false);},[bot.id]);
   useEffect(()=>{if(!appearance)return;const key=(event:KeyboardEvent)=>{if(event.key==='Escape'){setAppearance(false);document.querySelector<HTMLButtonElement>('.profile-avatar-button')?.focus();}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[appearance]);
@@ -35,6 +37,7 @@ export function BotDetails({bot, state, invoke, routines, workspace, runtime, sc
   const skills=state.skills.filter(skill=>skill.installed&&(!skill.botIds.length||skill.botIds.includes(bot.id)));
   const tabs: {id: Tab; label: string}[]=[{id:'details',label:'Details'},{id:'library',label:'Library'},{id:'computer',label:'Computer'}];
   return <aside className="details-rail">
+    {memoryOpen&&<MemoryPanel bot={bot} invoke={invoke} onClose={()=>setMemoryOpen(false)}/>}
     <header className="bot-panel-header"><span>Bot details</span><button className="icon-button" aria-label="Bot settings" title="Bot settings" onClick={onSettings}><Settings size={17}/></button></header>
     <div className="bot-profile"><button className="profile-avatar-button" aria-label={`Customize ${bot.name}'s avatar`} aria-expanded={appearance} onClick={()=>setAppearance(!appearance)}><Avatar bot={bot} size={76}/></button><h2>{bot.name}</h2><p title={bot.role}>{bot.role}</p></div>
     {appearance&&<div className="appearance-scroll"><AvatarEditor key={bot.id} bot={bot} state={state} invoke={invoke} onClose={()=>setAppearance(false)}/></div>}
@@ -53,7 +56,7 @@ export function BotDetails({bot, state, invoke, routines, workspace, runtime, sc
             <button className="icon-button routine-run" aria-label={`Run ${routine.name}`} title="Run now" onClick={()=>onRunRoutine(routine)}><Play size={12}/></button>
           </div>)}</div>:<div className="detail-empty"><Clock size={19}/><p>Good work can become a routine.</p><button onClick={()=>onRoutine()}>Schedule something<Plus size={13}/></button></div>}
         </section>
-        <section className="memory-section"><div className="section-heading"><h3>Remembered preferences</h3><button className="icon-button" aria-label="Edit standing instructions" onClick={onSettings}><Plus size={15}/></button></div><p>{bot.memory||'Tell your bot what to remember. Your preferences stay with it.'}</p></section>
+        <section className="memory-section"><div className="section-heading"><h3>Remembered preferences</h3><button className="icon-button" aria-label="Edit standing instructions" onClick={onSettings}><Plus size={15}/></button></div><p>{bot.memory||'Tell your bot what to remember. Your preferences stay with it.'}</p><button className="button" onClick={()=>setMemoryOpen(true)}>Memory notes</button></section>
         <section className="skills-section"><div className="section-heading"><h3>Skills</h3><button className="icon-button" aria-label="Manage bot skills" onClick={onMarketplace}><Plus size={15}/></button></div>{skills.length?skills.map(skill=><button key={skill.id} onClick={onMarketplace}><Check size={13}/>{skill.name}<ChevronRight size={12}/></button>):<p className="detail-help">Add a skill to give {bot.name} a new way to work.</p>}</section>
       </>}
       {tab==='library'&&<>

@@ -52,6 +52,20 @@ try{
  assert.equal(state.bots.length,2,'Bots persist after restart');
  assert.equal(state.chats.length,1,'Chats persist after restart');
  assert.equal(state.bots[0].memory,'Prefer concise briefings with sources.');
+ const vault=await application.evaluate(({safeStorage})=>{if(!safeStorage.isEncryptionAvailable())return false;const fixture='ibot-synthetic-vault-probe';const encrypted=safeStorage.encryptString(fixture);return safeStorage.decryptString(encrypted)===fixture&&!encrypted.toString().includes(fixture);});
+ assert(vault,'Windows safeStorage must encrypt and decrypt a synthetic test value');
+ await page.getByRole('button',{name:'Memory notes',exact:true}).click();
+ await page.getByRole('textbox',{name:'Topic',exact:true}).fill('Travel');await page.getByRole('textbox',{name:'Memory note',exact:true}).fill('Prefer trains');await page.getByRole('button',{name:'Save memory note',exact:true}).click();
+ await page.getByRole('combobox',{name:'Select memory note'}).selectOption({label:'Travel · bot · user'});
+ await page.getByRole('textbox',{name:'Memory note',exact:true}).fill('Prefer ferries');await page.getByRole('button',{name:'Save memory note',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('select[aria-label="Select memory note"]')?.value==='');
+ await page.getByRole('combobox',{name:'Select memory note'}).selectOption({label:'Travel · bot · user'});await page.getByRole('button',{name:'Show revisions'}).click();
+ await page.locator('details').filter({has:page.getByText('Prefer trains',{exact:true})}).locator('summary').click();await page.getByRole('button',{name:'Restore revision 1'}).click();
+ await page.waitForFunction(()=>document.querySelector('select[aria-label="Select memory note"]')?.value==='');
+ await page.getByRole('combobox',{name:'Select memory note'}).selectOption({label:'Travel · bot · user'});assert.equal(await page.getByRole('textbox',{name:'Memory note',exact:true}).inputValue(),'Prefer trains');
+ await page.getByRole('button',{name:'Delete note and revisions'}).click();await page.waitForFunction(()=>document.querySelector('select[aria-label="Select memory note"]')?.options.length===1);await page.getByRole('button',{name:'Close dialog',exact:true}).click();
+ assert.equal((await page.evaluate(()=>window.ibot.invoke('memory.list',{botId:'chief'}))).length,0);
+ await page.getByRole('button',{name:/Ramesh.*Local profile/}).click();await page.getByRole('button',{name:'Activity',exact:true}).click();await page.getByRole('heading',{name:'Activity',exact:true}).waitFor();await page.getByText('Interrupted actions are never automatically replayed.',{exact:false}).waitFor();await page.getByRole('button',{name:'Close dialog',exact:true}).click();
  if(process.env.IBOT_RUNTIME_INTEGRATION==='1'){
    console.log('Checking Linux viewer');
    await page.getByRole('tab',{name:'Computer',exact:true}).click();
@@ -87,5 +101,5 @@ try{
    await page.evaluate(()=>window.ibot.invoke('workspace.stop',{botId:'chief'}));
  }
  assert.equal(errors.length,0,errors.join('\n'));
- console.log(JSON.stringify({passed:true,checks:['desktop boot','empty real state','inbuilt avatars','create bot','provider setup gate','theme and motion','group chat','memory','restart persistence',...(process.env.IBOT_RUNTIME_INTEGRATION==='1'?['Linux screen connection','Linux terminal','workspace file editor','demonstrated clicks','save taught skill']:[])],dataDir,screenshots:'artifacts/desktop'},null,2));
+ console.log(JSON.stringify({passed:true,checks:['desktop boot','empty real state','inbuilt avatars','create bot','provider setup gate','theme and motion','group chat','memory','restart persistence','Windows safeStorage','Markdown notes edit/rollback/delete','Activity view',...(process.env.IBOT_RUNTIME_INTEGRATION==='1'?['Linux screen connection','Linux terminal','workspace file editor','demonstrated clicks','save taught skill']:[])],dataDir,screenshots:'artifacts/desktop'},null,2));
 } finally {if(application){if(process.env.IBOT_RUNTIME_INTEGRATION==='1'){const page=await application.firstWindow();await page.evaluate(()=>window.ibot.invoke('workspace.stop',{botId:'chief'})).catch(()=>{});}await application.close();}}
