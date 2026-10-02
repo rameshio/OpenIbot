@@ -10,6 +10,11 @@ export function toolEffect(call:ToolCall,bot:Bot,run:{id:string;chatId:string},s
   const definition=agentTools.find(tool=>tool.name===call.name);
   const effect:Effect={id:call.name,transport:'internal',actor:'agent',actorId:bot.id,chatId:run.chatId,taskId:run.id,target:`bot:${bot.id}`,args,dataScope:[`bot:${bot.id}`],...(definition?{toolName:call.name,toolSchemaHash:argsHash(definition)}:{})};
   switch(call.name){
+    case 'list_bots':return {...effect,id:'bot.list',class:'read',target:'bots',defaultPolicy:'allow'};
+    case 'update_bot':return {...effect,id:'bot.update',class:'write',target:`bot:${String(args.botId)}`};
+    case 'delete_bots':return {...effect,id:'bot.delete',class:'delete',target:args.all===true?'all-specialists':`bots:${Array.isArray(args.botIds)?args.botIds.join(','):''}`};
+    case 'restore_bot':return {...effect,id:'bot.restore',class:'admin',target:`bot:${String(args.botId)}`};
+    case 'set_main_bot':return {...effect,id:'bot.setMain',class:'admin',target:`bot:${String(args.botId)}`};
     case 'create_bot':return {...effect,id:'bot.create',class:'admin',target:'bots'};
     case 'delegate':case 'message_bot':return {...effect,id:'bot.delegate',transport:'delegation',class:'send',target:`bot:${String(args.botId)}`,dataScope:[`bot:${bot.id}`,`bot:${String(args.botId)}`]};
     case 'list_files':case 'read_file':case 'write_file':return {...effect,id:call.name==='list_files'?'file.list':call.name==='read_file'?'file.read':'file.write',transport:'file',class:call.name==='write_file'?'write':'read',target:`bot:${bot.id}:${workspacePath(args.path)}`,...(call.name!=='write_file'?{defaultPolicy:'allow' as const}:{})};

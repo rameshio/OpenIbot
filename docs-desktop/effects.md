@@ -165,3 +165,17 @@ Fresh validation: 68 tests, 66 pass, zero fail, two opt-in Docker skips; build/t
 Browser/computer execution now uses a typed main-process broker into the isolated desktop sidecar in production; fake runtimes retain their existing test fallback. Raw execution is still class execute. Network containment applies to container traffic; host provider/MCP traffic is outside this destination proxy.
 
 After untrusted tool content enters a chat, subsequent agent non-read effects ask even under broad allow rules. Blocks still win, and pending leases recheck context before dispatch. This chat-level conservative guard is not full information-flow tracking. The verifier is restricted to confirmed read effects and cannot use raw execution tools. See research-implementation.md for exact residual limitations.
+
+
+## Chat-driven bot management — October 2, 2026
+
+| Effect ID | Tool/transport | Class | Actor | Enforcement |
+| --- | --- | --- | --- | --- |
+| bot.list | list_bots / internal | read | agent | authorizeEffect then metadata-only active/removed inventory |
+| bot.update | update_bot / internal | write | agent | authorizeEffect, draft validation and guard before committing name/role/instructions |
+| bot.delete | delete_bots / internal | delete | agent | authorizeEffect, host-expanded exact target IDs/names in card; runtime stops and guarded recoverable removal |
+| bot.restore | restore_bot / internal | admin | agent | authorizeEffect; bot limit applies, schedules remain disabled |
+| bot.setMain | set_main_bot / internal | admin | agent | authorizeEffect; existing active ID only |
+| bot.delete / bot.restore | user-only IPC | delete / admin | user | main IPC allowlist; same validated mutations |
+
+Chief can perform these actions instead of pretending that delegation changes saved bot identity. update_bot accepts only name, role and instructions, preventing it from smuggling host network settings through a write classification. All specialists is resolved before asking: the approval displays actual IDs/names and a later-created bot cannot be removed by that grant. Main/current executing bots are retained; busy targets must be paused before removal. Recoverable removal disables associated routines, preserves chat bot IDs/history, notes, skills, connector assignments and Docker volumes, and stops associated containers. It is not erasure of personal data. list_bots(includeArchived=true) and restore_bot expose recovery; no automatic resumption of routines. Removing a bot does not turn its bot-specific connector/skill assignments into global access. Agent delete/admin rules, tainted-context review and exact grant binding remain enforced. Legacy removed-bot-only conversations cannot run until that bot is restored. Missing Docker/runtime stop capability can prevent removal; failures leave active records intact, though previously stopped containers may need restarting. No permanent purge or unrestricted Windows/credential access was added.
