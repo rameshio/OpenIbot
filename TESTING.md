@@ -377,3 +377,14 @@ To load the fixed main process, quit I Bot completely (including the tray) and r
 
 
 Final screenshot follow-up UI verification: `node scripts/test-approvals-desktop.mjs` passed all **11 checks** in the isolated tracked checkout with the `d3caeff` fixture and `be27b30` application build. The read card screenshot was visually inspected: class, labeled model-generated purpose, actual target, raw arguments and all eligible scopes are visible. The final fixture waits for resolved engine state and then card removal; both earlier timing failures are recorded above. The shared working checkout also passed this fixture. No real connector tool or provider was called. Committed-patch whitespace check passed. Build output in the workspace was refreshed; the user's already-running engine was not forcibly stopped or modified.
+
+
+## Installed app update — October 2, 2026
+
+Updated the running `release-avatar/win-unpacked/I Bot.exe` deployment with a complete Electron 44.4.1 package, replacing backend, renderer and bundled containers together. Previous avatar deployment tooling intentionally retained its backend while replacing UI; this established a version mismatch, although the exact original approval's live cause remains UNKNOWN. Existing source/avatar work was preserved and included in the built renderer, without committing those separate working edits.
+
+Validation: typecheck/build passed; `electron-builder --win --dir --x64 --config.directories.output=artifacts/app-update-20261002` succeeded; the actual packaged executable passed all 12 checks in `scripts/test-desktop.mjs` using an isolated temporary profile. Packaged main.cjs was byte-compared with the compiled workspace backend and matches. Deployed app.asar SHA256: `89BBE85ADF67547230F9FCE847BC8493DBAD35DB025F7E2800DE649EE6449858`.
+
+The old app was quit through Local profile → Quit I Bot using Computer Use, allowing engine shutdown to save and pause outstanding work. No forced termination or manual profile/secret editing. Renamed the old package to `release-avatar/win-unpacked.before-full-update-20261002-1716` and moved the verified full package to the original launch path. No package/profile files were deleted. Reopened that executable and visually verified the saved chats/bots, model selection and Memory notes control; the stale active-run indicator is gone. Outstanding work must be resumed explicitly by the user.
+
+Files changed: generated application package under release-avatar/win-unpacked (ignored), prior package backup (ignored), build artifacts (ignored), and this TESTING.md record. No new source/dependency changes in this update. Application version remains 0.5.1; the package hash identifies this build. Live vendor tools/provider authentication and packaged approval fixture remain UNKNOWN/not rerun; source approval fixture already passed 11 checks. No push/merge.
