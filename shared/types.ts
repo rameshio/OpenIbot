@@ -2,16 +2,17 @@ export type BotStatus = 'idle' | 'thinking' | 'working' | 'waiting' | 'done' | '
 export type AvatarShape = 'orbit' | 'prism' | 'pebble' | 'bloom' | 'capsule' | 'sprout' | 'triangle' | 'drop';
 export type AvatarAccessory = 'none' | 'glasses' | 'headphones' | 'halo' | 'cap' | 'crown' | 'sparkles';
 export type AvatarExpression = 'neutral' | 'attentive' | 'surprised' | 'excited' | 'happy' | 'laughing' | 'angry' | 'sad' | 'scared' | 'suspicious' | 'confused' | 'curious' | 'proud' | 'shy' | 'unimpressed' | 'sleepy';
-export interface Bot { id: string; name: string; role: string; instructions: string; memory: string; color: string; avatar: AvatarShape; accessory?: AvatarAccessory; avatarImage?: string; expression?: AvatarExpression; completedAt?: string; status: BotStatus; createdAt: string; }
-export interface Chat { id: string; title: string; botIds: string[]; createdAt: string; updatedAt: string; status: 'idle' | 'running' | 'paused' | 'error'; }
+export interface Bot { modelConnectionId?:string; networkHosts?: string[]; id: string; name: string; role: string; instructions: string; memory: string; color: string; avatar: AvatarShape; accessory?: AvatarAccessory; avatarImage?: string; expression?: AvatarExpression; completedAt?: string; status: BotStatus; createdAt: string; }
+export interface Chat { untrustedContext?:boolean; id: string; title: string; botIds: string[]; createdAt: string; updatedAt: string; status: 'idle' | 'running' | 'paused' | 'error'; }
 export interface Attachment { id: string; name: string; path: string; size: number; botId?: string; }
 export interface Message { id: string; chatId: string; botId?: string; role: 'user' | 'assistant' | 'event' | 'error'; content: string; createdAt: string; attachments?: Attachment[]; }
 export interface Routine { id: string; botId: string; name: string; prompt: string; time: string; days: number[]; timezone: string; enabled: boolean; lastRunAt?: string; nextRunAt?: string; lastStatus?: string; }
 export interface Skill { id: string; name: string; description: string; instructions: string; botIds: string[]; installed: boolean; source: 'builtin' | 'taught' | 'custom'; createdAt?: string; }
 export type EffectClass = 'read' | 'write' | 'send' | 'spend' | 'delete' | 'upload' | 'persist' | 'execute' | 'admin';
 export type EffectActor = 'user' | 'agent' | 'system';
+export interface ActionRecord {id:string;chatId:string;taskId:string;actorId:string;effectId:string;effectClass:string;transport:string;targetHash:string;argsHash:string;state:'dispatched'|'succeeded'|'failed'|'uncertain'|'reconciled';createdAt:string;}
 /** Constructed by trusted main-process dispatchers, never accepted from model/IPC arguments. */
-export interface Effect { id: string; transport: string; class?: EffectClass; actor: EffectActor; actorId: string; chatId: string; taskId: string; target: string; args: unknown; dataScope: string[]; connectorId?: string; defaultPolicy?: 'allow'; toolName?: string; toolSchemaHash?: string; unconfirmedConnector?: boolean; }
+export interface Effect { id: string; transport: string; class?: EffectClass; actor: EffectActor; actorId: string; chatId: string; taskId: string; target: string; args: unknown; dataScope: string[]; connectorId?: string; defaultPolicy?: 'allow'; toolName?: string; toolSchemaHash?: string; unconfirmedConnector?: boolean; untrustedContext?:boolean; }
 export interface EffectGrant { effectClass: EffectClass; target: string; argsHash: string; dataScope: string[]; policyVersion: number; scope: 'once' | 'chat' | 'task' | 'until'; expiresAt: string; }
 export interface EffectApprovalDecision { approved: boolean; scope?: EffectGrant['scope']; expiresAt?: string; }
 export interface Approval { id: string; chatId: string; botId: string; action: string; details: string; status: 'pending' | 'approved' | 'denied'; createdAt: string; effect?: Omit<Effect, 'args' | 'defaultPolicy'> & {argsHash: string}; policyVersion?: number; grant?: EffectGrant; presentation?: ApprovalPresentation; }
@@ -34,6 +35,9 @@ export interface RuntimeStatus { available: boolean; imageReady: boolean; messag
 export interface WorkspaceFile { name: string; path: string; directory: boolean; size: number; }
 export interface CommandResult { stdout: string; stderr: string; exitCode: number; }
 export interface RuntimeService {
+  computer?(botId:string,args:Record<string,unknown>,signal?:AbortSignal,beforeEffect?:()=>void):Promise<CommandResult>;
+  openBrowser?(botId:string,url:string,signal?:AbortSignal,beforeEffect?:()=>void):Promise<CommandResult>;
+  setNetworkPolicy?(botId:string,hosts:string[]):Promise<void>;
   status(): Promise<RuntimeStatus>;
   buildImage(onLog?: (line: string)=>void): Promise<RuntimeStatus>;
   ensure(botId: string, beforeEffect?:()=>void): Promise<WorkspaceInfo>;

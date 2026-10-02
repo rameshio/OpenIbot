@@ -47,3 +47,7 @@ test-results/
 playwright-report/
 artifacts/
 *.log
+__pycache__/
+*.py[cod]
+action-journal.sqlite*
+memory/index.sqlite*

@@ -19,6 +19,8 @@ export function toolEffect(call:ToolCall,bot:Bot,run:{id:string;chatId:string},s
     case 'computer':return {...effect,id:'computer.control',transport:'computer',class:'execute'};
     case 'screenshot':return {...effect,id:'computer.screenshot',transport:'screen',class:'read',defaultPolicy:'allow'};
     case 'save_memory':return {...effect,id:'memory.write',transport:'memory',class:'persist'};
+    case 'search_memory':return {...effect,id:'memory.search',transport:'memory',class:'read',defaultPolicy:'allow'};
+    case 'save_memory_note':return {...effect,id:'memory.note.write',transport:'memory',class:'persist',target:`${String(args.scope)}:${args.scope==='chat'?run.chatId:bot.id}:${String(args.id??args.topic)}`};
     case 'save_skill':return {...effect,id:'skill.write',transport:'skill',class:'persist',target:`bot:${bot.id}:skill:${String(args.id??args.name)}`};
     case 'schedule_routine':return {...effect,id:'routine.write',transport:'routine',class:'persist',target:`bot:${bot.id}:routine:${String(args.id??args.name)}`};
     case 'connector_call':{

@@ -18,7 +18,7 @@ let quitting=false;
 let shutdownComplete=false;
 let shutdownStarted=false;
 let engine:Awaited<ReturnType<typeof createEngine>>;
-const allowed=new Set(['state.get','bot.create','bot.update','bot.setMain','chat.create','chat.send','chat.pause','chat.resume','chat.delete','settings.update','provider.save','provider.test','provider.discover','provider.activate','provider.delete','routine.save','routine.delete','routine.run','skill.save','skill.install','skill.delete','approval.resolve','connector.save','connector.test','connector.classify','connector.delete']);
+const allowed=new Set(['state.get','bot.create','bot.update','bot.setMain','bot.takeover','memory.list','memory.save','memory.revisions','memory.rollback','memory.delete','activity.get','activity.reconcile','chat.create','chat.send','chat.pause','chat.resume','chat.delete','settings.update','provider.save','provider.test','provider.discover','provider.activate','provider.delete','routine.save','routine.delete','routine.run','skill.save','skill.install','skill.delete','approval.resolve','connector.save','connector.test','connector.classify','connector.delete']);
 const desktopCommands=new Set(['runtime.status','runtime.build','workspace.inspect','workspace.start','workspace.stop','workspace.exec','workspace.files','workspace.read','workspace.write','workspace.screenshot','workspace.export','files.pick','files.open','app.info','app.open-data','app.quit','external.open']);
 for(const command of ['media.models','media.generate','media.transcribe','media.cancel','connector.authorize'])allowed.add(command);
 for(const command of ['avatar.pick','voice.microphone','chat.export'])desktopCommands.add(command);
@@ -56,7 +56,7 @@ app.on('activate',showWindow);
 app.whenReady().then(async()=>{
   const dataDir=app.getPath('userData');
   const resourceDir=app.isPackaged?process.resourcesPath:app.getAppPath();
-  const runtime=createRuntime({dataDir,resourcesDir:resourceDir});
+  const runtime=createRuntime({dataDir,resourcesDir:resourceDir,networkHosts:botId=>engine.getState().bots.find(bot=>bot.id===botId)?.networkHosts??[]});
   engine=await createEngine({dataDir,runtime,emit:sendState,
     openExternal:async url=>{await shell.openExternal(url);},normalizeAvatar,
     encrypt:(text:string)=>{if(!safeStorage.isEncryptionAvailable())throw new Error('Windows credential encryption is unavailable.');return safeStorage.encryptString(text).toString('base64');},

@@ -21,7 +21,8 @@ test('real Linux computers isolate files, preserve data, enforce the file bridge
   timeout: 240000,
 }, async t => {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), 'ibot-runtime-test-'));
-  const runtime = createRuntime({ dataDir, resourcesDir: process.cwd() });
+  let networkHosts:string[]=[];
+  const runtime = createRuntime({ dataDir, resourcesDir: process.cwd(),networkHosts:()=>networkHosts });
   const ids = ['isolation-alpha', 'isolation-beta'];
   t.after(async () => { await Promise.all(ids.map(id => runtime.stop(id).catch(() => undefined))); });
   const status = await runtime.status();
@@ -46,6 +47,18 @@ test('real Linux computers isolate files, preserve data, enforce the file bridge
   assert.equal((await runtime.exec(ids[0], 'printf alpha > "$HOME/home-marker"')).exitCode, 0);
   assert.equal((await runtime.exec(ids[1], 'test ! -f "$HOME/home-marker"')).exitCode, 0);
   assert.equal((await runtime.exec(ids[0], 'test ! -S /var/run/docker.sock')).exitCode, 0);
+  assert.equal((await runtime.exec(ids[0], 'test ! -e "$HOME/.vnc/passwd"; test ! -d "$HOME/.config/chromium"')).exitCode,0,'Shell identity has no browser or VNC credential files');
+  assert.equal(await readFile(path.join(dataDir,'runtime','desktop-secrets.json'),'utf8').then(()=>true,()=>false),false,'VNC credentials are not persisted on the host');
+  assert.equal((await runtime.computer!(ids[0],{action:'move',x:10,y:10})).exitCode,0,'Computer control uses the desktop broker');
+  assert.equal((await runtime.exec(ids[0], 'test ! -e /run/ibot-egress/policy.json')).exitCode,0,'The shell cannot access gateway policy');
+  assert.notEqual((await runtime.exec(ids[0], "timeout 4 python3 -c 'import socket; socket.getaddrinfo(\"example.com\",443)' >/dev/null 2>&1")).exitCode,0,'External DNS cannot bypass the gateway');
+  assert.equal((await runtime.exec(ids[0], 'curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://example.com')).stdout,'403','Unknown destinations are denied');
+  assert.notEqual((await runtime.exec(ids[0], 'curl -s --proxy "" --connect-timeout 2 --max-time 3 http://93.184.216.34 >/dev/null')).exitCode,0,'Bypassing proxy does not restore direct internet access');
+  networkHosts=['example.com'];await runtime.setNetworkPolicy!(ids[0],networkHosts);
+  assert.equal((await runtime.exec(ids[0], 'curl -fs -o /dev/null --max-time 20 https://example.com')).exitCode,0,'A user-approved public host works through the gateway');
+  assert.equal((await runtime.exec(ids[0], 'curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://unapproved.example.com')).stdout,'403','A host grant never includes subdomains');
+  networkHosts=[];await runtime.setNetworkPolicy!(ids[0],networkHosts);
+  assert.equal((await runtime.exec(ids[0], 'curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://example.com')).stdout,'403','Revocation is applied without restarting the workspace');
   await runtime.exec(ids[0], 'ln -s /etc /workspace/escape; ln -s /etc/passwd /workspace/linked-file; ln /workspace/report.md /workspace/hardlink');
   await assert.rejects(runtime.readFile(ids[0], '/workspace/escape/passwd'));
   await assert.rejects(runtime.readFile(ids[0], '/workspace/linked-file'));

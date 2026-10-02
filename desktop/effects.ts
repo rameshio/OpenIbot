@@ -21,13 +21,13 @@ export function effectDecision(effect:Effect, settings:AppSettings):'allow'|'den
   if(effect.unconfirmedConnector){keys.add('write');if(effect.connectorId)keys.add(`connector:${effect.connectorId}:write`);}
   const policies=settings.rules.filter(rule=>keys.has(rule.action)).map(rule=>rule.policy);
   if(policies.includes('block'))return 'deny';
-  if(effect.unconfirmedConnector)return 'ask';
+  if(effect.unconfirmedConnector||(effect.actor==='agent'&&effect.untrustedContext&&effect.class!=='read'))return 'ask';
   if(policies.includes('ask'))return 'ask';
   if(policies.includes('allow')||!settings.autoReview||effect.defaultPolicy==='allow')return 'allow';
   return 'ask';
 }
 
-export function createEffectAuthorizer(options:{settings:()=>AppSettings;now:()=>number;request:(effect:Effect,policyVersion:number)=>Promise<EffectApprovalDecision>}) {
+export function createEffectAuthorizer(options:{settings:()=>AppSettings;now:()=>number;untrustedContext?:(effect:Effect)=>boolean;request:(effect:Effect,policyVersion:number)=>Promise<EffectApprovalDecision>;journal?:{begin:(effect:Effect)=>string;finish:(id:string,state:'succeeded'|'failed')=>void;decision:(effect:Effect,decision:'allow'|'deny'|'ask')=>void}}) {
   type StoredGrant={effect:Effect;grant:EffectGrant;used:boolean};
   const grants:StoredGrant[]=[];
   const version=()=>options.settings().policyVersion;
@@ -36,12 +36,13 @@ export function createEffectAuthorizer(options:{settings:()=>AppSettings;now:()=
     const {grant,used,effect:original}=stored;
     return (!used||ownDispatch)&&grant.policyVersion===version()&&Date.parse(grant.expiresAt)>options.now()&&
       grant.effectClass===effect.class&&grant.target===effect.target&&grant.argsHash===hash&&
-      argsHash(grant.dataScope)===argsHash(effect.dataScope)&&original.id===effect.id&&original.transport===effect.transport&&original.actor===effect.actor&&original.actorId===effect.actorId&&
+      argsHash(grant.dataScope)===argsHash(effect.dataScope)&&original.untrustedContext===effect.untrustedContext&&original.id===effect.id&&original.transport===effect.transport&&original.actor===effect.actor&&original.actorId===effect.actorId&&
       (grant.scope==='until'||(grant.scope==='chat'?original.chatId===effect.chatId:original.chatId===effect.chatId&&original.taskId===effect.taskId));
   }
   async function authorizeEffect(input:Effect) {
-    const effect=structuredClone(input),hash=argsHash(effect.args),policyVersion=version();
+    const effect=structuredClone(input);if(options.untrustedContext?.(effect))effect.untrustedContext=true;const hash=argsHash(effect.args),policyVersion=version();
     const decision=effectDecision(effect,options.settings());
+    options.journal?.decision(effect,decision);
     if(decision==='deny')throw denied(effect);
     let stored:StoredGrant|undefined;
     if(decision==='ask') {
@@ -65,6 +66,7 @@ export function createEffectAuthorizer(options:{settings:()=>AppSettings;now:()=
     let dispatched=false;
     const validate=()=>{
       if(effect.actor==='user')return;
+      if(!effect.untrustedContext&&options.untrustedContext?.(effect)&&effect.actor==='agent'&&effect.class!=='read')throw new Error('Untrusted content entered this chat. Request a new approval before executing.');
       if(version()!==policyVersion)throw new Error('The action policy changed. Request a new approval.');
       const current=effectDecision(effect,options.settings());if(current==='deny')throw denied(effect);
       if(stored&&Date.parse(stored.grant.expiresAt)<=options.now())throw new Error('The action grant expired. Request a new approval.');
@@ -73,7 +75,12 @@ export function createEffectAuthorizer(options:{settings:()=>AppSettings;now:()=
     validate();
     return {grant:stored?structuredClone(stored.grant):undefined,validate,
       // Validate and invoke without an intervening await: this is the dispatch boundary.
-      execute<T>(work:()=>T):T {if(dispatched)throw new Error('This authorization was already dispatched.');validate();dispatched=true;if(stored?.grant.scope==='once')stored.used=true;return work();},
+      execute<T>(work:()=>T):T {
+        if(dispatched)throw new Error('This authorization was already dispatched.');validate();const id=options.journal?.begin(effect);dispatched=true;if(stored?.grant.scope==='once')stored.used=true;
+        let value:T;try{value=work();}catch(error){if(id)options.journal!.finish(id,'failed');throw error;}
+        if(value&&typeof (value as any).then==='function')return Promise.resolve(value).then(result=>{if(id)options.journal!.finish(id,'succeeded');return result;},error=>{if(id)options.journal!.finish(id,'failed');throw error;}) as T;
+        if(id)options.journal!.finish(id,'succeeded');return value;
+      },
     };
   }
   return {authorizeEffect,invalidate(){grants.length=0;}};

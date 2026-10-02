@@ -18,6 +18,7 @@ export function initialState(): AppState {
 /** Sync atomic snapshots serialize all mutations on Electron's main thread. Secrets are ciphertext only. */
 export class Store {
   readonly path: string;
+  readonly recovery?:{quarantinePath:string};
   data: StoredData;
   constructor(dataDir: string) {
     mkdirSync(dataDir, { recursive: true });
@@ -25,14 +26,15 @@ export class Store {
     this.data = { state: initialState(), secrets: {}, routineSlots: {} };
     if (existsSync(this.path)) {
       try {
-        const parsed = JSON.parse(readFileSync(this.path, 'utf8')) as StoredData;
-        if (parsed.state?.version !== 1 || !Array.isArray(parsed.state.bots) || !Array.isArray(parsed.state.chats)) throw new Error('Unsupported or invalid state');
+        const parsed = loadState(this.path);
         this.data = parsed;
         this.data.secrets ??= {};
         this.data.routineSlots ??= {};
-      } catch (error) {
-        // Never overwrite unreadable user data with an empty account.
-        throw new Error(`Cannot load I Bot data at ${this.path}: ${error instanceof Error ? error.message : String(error)}`);
+      } catch {
+        let backup:StoredData;
+        try{backup=loadState(`${this.path}.bak`);}catch{throw new Error('Cannot load I Bot data or its backup. Both files have been preserved.');}
+        const quarantinePath=`${this.path}.corrupt-${randomUUID()}`;
+        renameSync(this.path,quarantinePath);this.data=backup;this.data.secrets??={};this.data.routineSlots??={};this.recovery={quarantinePath};
       }
     }
     const state=this.data.state;
@@ -72,4 +74,11 @@ export class Store {
     renameSync(temp, this.path);
   }
   snapshot(): AppState { return structuredClone(this.data.state); }
+}
+
+function loadState(file:string):StoredData{
+ const parsed=JSON.parse(readFileSync(file,'utf8')) as StoredData,state=parsed?.state;
+ if(state?.version!==1||!state.settings||typeof state.settings!=='object'||!state.settings.provider||!Array.isArray(state.bots)||!state.bots.length||!Array.isArray(state.chats)||!Array.isArray(state.messages)||!Array.isArray(state.approvals)||!Array.isArray(state.routines)||!Array.isArray(state.connectors)||!Array.isArray(state.skills)||!Array.isArray(state.usage))throw new Error('Invalid state');
+ if(state.bots.some(bot=>!bot||typeof bot.id!=='string'||typeof bot.name!=='string'||typeof bot.instructions!=='string')||new Set(state.bots.map(bot=>bot.id)).size!==state.bots.length)throw new Error('Invalid bots');
+ return parsed;
 }
