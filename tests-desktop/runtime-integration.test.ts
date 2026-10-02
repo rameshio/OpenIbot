@@ -5,6 +5,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRuntime } from '../desktop/runtime';
 
+test('revocation during provisioning prevents runtime credential persistence', {
+  skip:process.env.IBOT_RUNTIME_INTEGRATION!=='1',timeout:30000,
+},async()=>{
+  const dataDir=await mkdtemp(path.join(os.tmpdir(),'ibot-runtime-guard-'));
+  const runtime=createRuntime({dataDir,resourcesDir:process.cwd()});
+  let checks=0;
+  await assert.rejects(runtime.ensure('revoked-fixture',()=>{if(++checks>=2)throw new Error('Fixture policy revoked');}),/policy revoked/);
+  const credentials=await readFile(path.join(dataDir,'runtime','desktop-secrets.json'),'utf8').catch(error=>{if(error.code==='ENOENT')return '{}';throw error;});
+  assert.equal(Object.hasOwn(JSON.parse(credentials),'revoked-fixture'),false,'Revoked provisioning must not persist a runtime credential');
+});
+
 test('real Linux computers isolate files, preserve data, enforce the file bridge, and support cancellation', {
   skip: process.env.IBOT_RUNTIME_INTEGRATION !== '1' ? 'Set IBOT_RUNTIME_INTEGRATION=1 with Docker Desktop running and the workspace image built.' : false,
   timeout: 240000,

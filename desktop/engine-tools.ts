@@ -1,7 +1,7 @@
 import type { ToolDefinition } from './providers';
 const str = (description: string) => ({ type: 'string', description });
 const obj = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({ type: 'object', properties, required, additionalProperties: false });
-const tool = (name: string, description: string, properties: Record<string,unknown>, required?:string[]): ToolDefinition => ({ name, description, parameters: obj(properties, required) });
+const tool = (name: string, description: string, properties: Record<string,unknown>, required=Object.keys(properties)): ToolDefinition => ({ name, description, parameters: obj({...properties,approvalPurpose:str('One plain-language sentence explaining this action using its arguments and the user request. This model-generated explanation is advisory; never include secrets.')}, required) });
 export const agentTools: ToolDefinition[] = [
   tool('create_bot', 'Create a persistent specialist with its own memory and Linux workspace. Reuse an existing suitable bot when possible.', { name: str('Short descriptive bot name'), role: str('Specialty'), instructions: str('Role and operating instructions') }),
   tool('delegate', 'Assign a bounded task to a bot and wait for its actual result. The task may run in parallel with other delegate calls to different bots. Include relevant context and files.', { botId: str('Existing bot ID'), task: str('Specific task with expected result') }),

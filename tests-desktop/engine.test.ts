@@ -46,6 +46,8 @@ test('real orchestration routes handoffs, workspace ownership, memory and verifi
     return result('Prepared the evidence; independent verification reported PASS.');
   });
   t.after(()=>engine.shutdown());
+  // This orchestration test explicitly permits its mutations; authorization is tested separately.
+  await engine.invoke('settings.update',{rules:['admin','send','write','persist'].map(action=>({id:action,action,policy:'allow'}))});
   const chat=await engine.invoke('chat.create',{}) as Chat;
   await engine.invoke('chat.send',{chatId:chat.id,content:'Research this and save evidence.'});
   await engine.waitForIdle();

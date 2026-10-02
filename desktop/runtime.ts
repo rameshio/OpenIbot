@@ -114,9 +114,10 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
   const labels = (botId: string) => ['--label', `${MANAGED_LABEL}=true`, '--label', `${INSTALL_LABEL}=${installation}`, '--label', `${BOT_LABEL}=${botId}`];
   const update = (info: WorkspaceInfo) => { options.onUpdate?.(info); return info; };
 
-  async function secret(botId: string): Promise<string> {
+  async function secret(botId: string, beforeEffect?:()=>void): Promise<string> {
     validateBotId(botId);
     const job = secretsChain.then(async () => {
+      beforeEffect?.();
       await mkdir(runtimeDir, { recursive: true, mode: 0o700 });
       let secrets: Record<string, string> = {};
       try {
@@ -130,7 +131,9 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
       const password = randomBytes(12).toString('base64url').slice(0, 8);
       Object.defineProperty(secrets, botId, { value: password, enumerable: true, configurable: true, writable: true });
       const temporary = `${secretsFile}.${randomUUID()}.tmp`;
+      beforeEffect?.();
       await writeFile(temporary, JSON.stringify(secrets), { mode: 0o600, flag: 'wx' });
+      beforeEffect?.();
       await rename(temporary, secretsFile);
       return password;
     });
@@ -153,7 +156,7 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
     return (JSON.parse(result.stdout) as DockerObject[])[0];
   }
 
-  async function inspect(botId: string): Promise<WorkspaceInfo> {
+  async function inspect(botId: string, beforeEffect?:()=>void): Promise<WorkspaceInfo> {
     validateBotId(botId);
     const name = resourceName(botId);
     try {
@@ -163,7 +166,7 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
       if (!object.State?.Running) return { botId, status: 'stopped', containerName: name };
       const binding = object.NetworkSettings?.Ports?.['6080/tcp']?.find(port => port.HostIp === '127.0.0.1');
       if (!binding || !/^\d{1,5}$/.test(binding.HostPort)) throw new Error('This bot computer is missing its local desktop port.');
-      const password = await secret(botId);
+      const password = await secret(botId,beforeEffect);
       const desktopUrl = `http://127.0.0.1:${binding.HostPort}/desktop.html#password=${encodeURIComponent(password)}`;
       if (object.State.Health?.Status === 'unhealthy') return { botId, status: 'error', containerName: name, error: 'The Linux desktop is not responding. Stop and restart this computer.' };
       return { botId, status: object.State.Health?.Status === 'starting' ? 'starting' : 'running', containerName: name, desktopUrl };
@@ -199,27 +202,29 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
     try { return await building; } finally { building = undefined; }
   }
 
-  async function ensureResource(kind: 'network' | 'volume', name: string, botId: string): Promise<void> {
+  async function ensureResource(kind: 'network' | 'volume', name: string, botId: string, beforeEffect?:()=>void): Promise<void> {
     const existing = await lookup(kind, name);
     if (existing) { verifyOwner(existing, botId); return; }
+    beforeEffect?.();
     await checked(kind === 'network'
       ? ['network', 'create', ...labels(botId), '--driver', 'bridge', '--opt', 'com.docker.network.bridge.enable_icc=false', name]
       : ['volume', 'create', ...labels(botId), name]);
   }
 
-  async function provision(botId: string): Promise<WorkspaceInfo> {
+  async function provision(botId: string, beforeEffect?:()=>void): Promise<WorkspaceInfo> {
     const name = resourceName(botId);
     update({ botId, status: 'starting', containerName: name });
     const current = await status();
     if (!current.available) throw new Error(current.message);
     if (!current.imageReady) throw new Error('Build the Linux computer image in Settings → Computers first.');
-    const password = await secret(botId);
+    const password = await secret(botId,beforeEffect);
     let object = await lookup('container', name);
     if (object) verifyOwner(object, botId);
     if (!object) {
-      await ensureResource('network', `${name}-net`, botId);
-      await ensureResource('volume', `${name}-home`, botId);
-      await ensureResource('volume', `${name}-work`, botId);
+      await ensureResource('network', `${name}-net`, botId,beforeEffect);
+      await ensureResource('volume', `${name}-home`, botId,beforeEffect);
+      await ensureResource('volume', `${name}-work`, botId,beforeEffect);
+      beforeEffect?.();
       await checked(['create', '--name', name, ...labels(botId), '--hostname', 'ibot',
         '--user', '1000:1000', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges=true',
         '--cpus', '2', '--memory', '2g', '--memory-swap', '2g', '--pids-limit', '256', '--shm-size', '256m',
@@ -230,13 +235,15 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
       object = await lookup('container', name);
     }
     if (!object?.State?.Running) {
+      beforeEffect?.();
       await checked(['start', name]);
       // The entrypoint waits for this file. No VNC secret in Docker env or argv.
+      beforeEffect?.();
       await checked(['exec', '-i', name, 'python3', '-c', 'import os,sys; fd=os.open("/tmp/ibot-vnc-secret",os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW,0o600); os.write(fd,sys.stdin.buffer.read(64)); os.close(fd)'], { input: `${password}\n` });
     }
     const deadline = Date.now() + 75000;
     while (Date.now() < deadline) {
-      const info = await inspect(botId);
+      const info = await inspect(botId,beforeEffect);
       if (info.status === 'error' || info.status === 'stopped') throw new Error(info.error || 'The Linux computer stopped while starting.');
       if (info.desktopUrl) {
         try {
@@ -252,10 +259,11 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
     throw new Error('Linux computer startup timed out. Check Docker Desktop resources and retry.');
   }
 
-  async function ensure(botId: string): Promise<WorkspaceInfo> {
+  async function ensure(botId: string, beforeEffect?:()=>void): Promise<WorkspaceInfo> {
     validateBotId(botId);
     if (pending.has(botId)) return pending.get(botId)!;
-    const promise = provision(botId).catch(error => {
+    beforeEffect?.();
+    const promise = provision(botId,beforeEffect).catch(error => {
       update({ botId, status: 'error', error: (error as Error).message });
       throw error;
     }).finally(() => pending.delete(botId));
@@ -274,17 +282,18 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
     update({ botId, status: 'stopped', containerName: name });
   }
 
-  async function exec(botId: string, command: string, signal?: AbortSignal): Promise<CommandResult> {
+  async function exec(botId: string, command: string, signal?: AbortSignal, beforeEffect?:()=>void): Promise<CommandResult> {
     validateBotId(botId);
     if (typeof command !== 'string' || command.length > 131072 || command.includes('\0')) throw new Error('Invalid Linux command.');
     if (signal?.aborted) throw new Error('Command cancelled.');
-    await ensure(botId);
+    await ensure(botId,beforeEffect);
     if (signal?.aborted) throw new Error('Command cancelled.');
     const name = resourceName(botId);
     const identifier = randomUUID();
     const cancel = () => { void runDocker(['exec', name, 'python3', '/opt/ibot/run_command.py', '--cancel', identifier], { timeout: 10000 }).catch(() => undefined); };
     signal?.addEventListener('abort', cancel, { once: true });
     try {
+      beforeEffect?.();
       const result = await checked(['exec', '-i', name, 'python3', '/opt/ibot/run_command.py'], { input: JSON.stringify({ id: identifier, command, timeout: 120 }), timeout: 140000, limit: 12 * 1024 * 1024 });
       if (signal?.aborted) throw new Error('Command cancelled.');
       const value = JSON.parse(result.stdout) as CommandResult;
@@ -293,10 +302,11 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
     } finally { signal?.removeEventListener('abort', cancel); }
   }
 
-  async function files<T>(botId: string, request: Record<string, unknown>): Promise<T> {
+  async function files<T>(botId: string, request: Record<string, unknown>, beforeEffect?:()=>void): Promise<T> {
     validateBotId(botId);
     validateWorkspacePath(String(request.path));
-    await ensure(botId);
+    await ensure(botId,beforeEffect);
+    beforeEffect?.();
     const result = await runDocker(['exec', '-i', resourceName(botId), 'python3', '/opt/ibot/workspace_files.py'], { input: JSON.stringify(request), timeout: 90000, limit: MAX_FILE_BYTES * 2 });
     let payload: { ok: boolean; result: T; error?: string };
     try { payload = JSON.parse(result.stdout); } catch { throw new Error(failure(result)); }
@@ -304,45 +314,47 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
     return payload.result;
   }
 
-  async function readBytes(botId: string, file: string): Promise<Buffer> {
-    const result = await files<{ data: string }>(botId, { op: 'read', path: validateWorkspacePath(file, false) });
+  async function readBytes(botId: string, file: string, beforeEffect?:()=>void): Promise<Buffer> {
+    const result = await files<{ data: string }>(botId, { op: 'read', path: validateWorkspacePath(file, false) },beforeEffect);
     return Buffer.from(result.data, 'base64');
   }
-  async function writeBytes(botId: string, file: string, bytes: Buffer): Promise<void> {
+  async function writeBytes(botId: string, file: string, bytes: Buffer, beforeEffect?:()=>void): Promise<void> {
     validateWorkspacePath(file, false);
     if (bytes.byteLength > MAX_FILE_BYTES) throw new Error('Files must be smaller than 64 MiB.');
-    await files(botId, { op: 'write', path: file, data: bytes.toString('base64') });
+    await files(botId, { op: 'write', path: file, data: bytes.toString('base64') },beforeEffect);
   }
 
   return {
     status, buildImage, ensure, inspect, stop, exec,
-    listFiles: (botId: string, directory = '/workspace') => files<WorkspaceFile[]>(botId, { op: 'list', path: validateWorkspacePath(directory) }),
-    readFile: async (botId, file) => {
-      const bytes = await readBytes(botId, file);
+    listFiles: (botId: string, directory = '/workspace',beforeEffect?:()=>void) => files<WorkspaceFile[]>(botId, { op: 'list', path: validateWorkspacePath(directory) },beforeEffect),
+    readFile: async (botId, file,beforeEffect) => {
+      const bytes = await readBytes(botId, file,beforeEffect);
       if (bytes.length > 2 * 1024 * 1024) throw new Error('Text preview is limited to 2 MiB. Export this file instead.');
       if (bytes.includes(0)) throw new Error('This is a binary file. Use Save to PC to open it.');
       try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
       catch { throw new Error('This file is not UTF-8 text. Use Save to PC to open it.'); }
     },
-    writeFile: (botId, file, content) => writeBytes(botId, file, Buffer.from(content, 'utf8')),
-    shareFile: async (sourceBotId, sourcePath, targetBotId, targetPath) => {
-      await writeBytes(targetBotId, targetPath, await readBytes(sourceBotId, sourcePath));
+    writeFile: (botId, file, content,beforeEffect) => writeBytes(botId, file, Buffer.from(content, 'utf8'),beforeEffect),
+    shareFile: async (sourceBotId, sourcePath, targetBotId, targetPath,beforeEffect) => {
+      await writeBytes(targetBotId, targetPath, await readBytes(sourceBotId, sourcePath,beforeEffect),beforeEffect);
     },
-    importFile: async (botId, source, name) => {
+    importFile: async (botId, source, name,beforeEffect) => {
       validateBotId(botId);
       if (typeof name !== 'string' || !name || /[\/\\\0]/.test(name) || name === '.' || name === '..') throw new Error('Invalid import file name.');
       const info = await stat(source);
       if (!info.isFile() || info.size > MAX_FILE_BYTES) throw new Error('Choose a regular file smaller than 64 MiB.');
-      await writeBytes(botId, `/workspace/${name}`, await readFile(source));
+      beforeEffect?.();
+      await writeBytes(botId, `/workspace/${name}`, await readFile(source),beforeEffect);
     },
     exportFile: async (botId, file, destination) => {
       const bytes = await readBytes(botId, file);
       // Destination is supplied only by Electron's native save dialog, never by bots.
       await writeFile(destination, bytes);
     },
-    screenshot: async botId => {
+    screenshot: async (botId,beforeEffect) => {
       validateBotId(botId);
-      await ensure(botId);
+      await ensure(botId,beforeEffect);
+      beforeEffect?.();
       const result = await checked(['exec', resourceName(botId), 'python3', '-c', 'from PIL import ImageGrab; import io,base64; image=ImageGrab.grab(xdisplay=":0"); image.thumbnail((1440,900)); out=io.BytesIO(); image.save(out,format="JPEG",quality=78); print(base64.b64encode(out.getvalue()).decode())'], { timeout: 15000 });
       const data = result.stdout.trim();
       if (!/^[A-Za-z0-9+/]+=*$/.test(data)) throw new Error('The desktop screenshot was invalid.');

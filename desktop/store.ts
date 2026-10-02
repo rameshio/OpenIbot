@@ -12,7 +12,7 @@ export function initialState(): AppState {
       { id: 'skill-verify', name: 'Verify before delivery', description: 'Check outputs against the original request.', instructions: 'Inspect actual files, run relevant checks, and report the evidence. Never describe an intended action as completed. Clearly list remaining failures.', botIds: [], installed: false, source: 'builtin' },
       { id: 'skill-handoff', name: 'Clear team handoffs', description: 'Give the next bot the context and files it needs.', instructions: 'Include the objective, completed work, exact file paths, evidence, open questions, and next action in every handoff.', botIds: [], installed: false, source: 'builtin' },
     ],
-    settings: { theme: 'dark', language: 'en', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', motion: 'full', closeToTray: true, notifications: true, autoReview: true, rules: [], provider: { provider: 'openai', model: '', baseUrl: 'https://api.openai.com/v1', hasKey: false }, connections: [], maxSteps: 30, maxBots: 8 } };
+    settings: { theme: 'dark', language: 'en', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', motion: 'full', closeToTray: true, notifications: true, autoReview: true, rules: [], policyVersion: 1, provider: { provider: 'openai', model: '', baseUrl: 'https://api.openai.com/v1', hasKey: false }, connections: [], maxSteps: 30, maxBots: 8 } };
 }
 
 /** Sync atomic snapshots serialize all mutations on Electron's main thread. Secrets are ciphertext only. */
@@ -37,6 +37,7 @@ export class Store {
     }
     // Upgrade a single saved provider without decrypting or exposing its credential.
     const settings = this.data.state.settings;
+    if(!Number.isSafeInteger(settings.policyVersion)||settings.policyVersion<1)settings.policyVersion=1;
     if (!Array.isArray(settings.connections)) {
       settings.connections = [];
       if (settings.provider.model) {

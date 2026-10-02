@@ -18,7 +18,7 @@ let quitting=false;
 let shutdownComplete=false;
 let shutdownStarted=false;
 let engine:Awaited<ReturnType<typeof createEngine>>;
-const allowed=new Set(['state.get','bot.create','bot.update','chat.create','chat.send','chat.pause','chat.resume','chat.delete','settings.update','provider.save','provider.test','provider.discover','provider.activate','provider.delete','routine.save','routine.delete','routine.run','skill.save','skill.install','skill.delete','approval.resolve','connector.save','connector.test','connector.delete']);
+const allowed=new Set(['state.get','bot.create','bot.update','chat.create','chat.send','chat.pause','chat.resume','chat.delete','settings.update','provider.save','provider.test','provider.discover','provider.activate','provider.delete','routine.save','routine.delete','routine.run','skill.save','skill.install','skill.delete','approval.resolve','connector.save','connector.test','connector.classify','connector.delete']);
 const desktopCommands=new Set(['runtime.status','runtime.build','workspace.inspect','workspace.start','workspace.stop','workspace.exec','workspace.files','workspace.read','workspace.write','workspace.screenshot','workspace.export','files.pick','files.open','app.info','app.open-data','app.quit','external.open']);
 for(const command of ['media.models','media.generate','media.transcribe','media.cancel','connector.authorize'])allowed.add(command);
 for(const command of ['avatar.pick','voice.microphone','chat.export'])desktopCommands.add(command);
@@ -92,7 +92,9 @@ app.whenReady().then(async()=>{
     validateSender(event);
     if(typeof command!=='string'||(!allowed.has(command)&&!desktopCommands.has(command)))throw new Error('Unknown application action.');
     if(input!==undefined&&(!input||typeof input!=='object'||Array.isArray(input)))throw new Error('Invalid action data.');
-    const args=(input??{}) as Record<string,unknown>;
+    // Actor metadata is created after sender validation, never taken from the payload.
+    const invocation={actor:'user' as const,command,args:(input??{}) as Record<string,unknown>};
+    const args=invocation.args;
     if(JSON.stringify(args).length>4_000_000)throw new Error('Action data is too large.');
     if(command==='voice.microphone'){microphoneUntil=Date.now()+15_000;return true;}
     if(command==='avatar.pick'){
@@ -146,7 +148,7 @@ app.whenReady().then(async()=>{
       const imports=path.join(dataDir,'imports');
       for(const attachment of args.attachments as Attachment[]){if(!attachment||typeof attachment.path!=='string'||!path.resolve(attachment.path).startsWith(imports+path.sep))throw new Error('Attach files using the file picker.');}
     }
-    return engine.invoke(command,args);
+    return engine.invoke(command,args,{actor:invocation.actor});
   });
   if(process.env.IBOT_DEV_URL){if(process.env.IBOT_DEV_URL!=='http://127.0.0.1:5177')throw new Error('Invalid development server.');await win.loadURL(process.env.IBOT_DEV_URL);}else await win.loadURL('ibot://app/index.html');
 }).catch(error=>{console.error(error);dialog.showErrorBox('I Bot could not start',error instanceof Error?error.message:String(error));quitting=true;app.quit();});

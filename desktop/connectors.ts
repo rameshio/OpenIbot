@@ -27,11 +27,11 @@ async function toolCatalog(client:Client,signal:AbortSignal) {
   for(let page=0;page<30;page++) {const result=await client.listTools(cursor?{cursor}:{},{signal,timeout:30_000});tools.push(...result.tools);if(tools.length>1000)throw new Error('The app exposes too many tools. Narrow its catalog before connecting.');cursor=result.nextCursor;if(!cursor)return tools;if(cursors.has(cursor))break;cursors.add(cursor);}
   throw new Error('The app returned an incomplete tool catalog.');
 }
-export async function callConnector(url:string,token:string,credentials:ConnectorCredentials|undefined,save:Save,method:string,params:any,signal:AbortSignal) {
+export async function callConnector(url:string,token:string,credentials:ConnectorCredentials|undefined,save:Save,method:string,params:any,signal:AbortSignal,beforeCall?:()=>void) {
   if(credentials&&credentials.serverUrl!==url)throw new Error('Sign in again for the new app endpoint.');
   const provider=credentials?oauthProvider(structuredClone(credentials),save,async()=>{throw new Error('Sign in to this app again from Marketplace.');},''): {token:async()=>token||undefined};
   const {client,transport}=clientAndTransport(url,signal,provider);
-  try{await client.connect(transport);return method==='tools/list'?{tools:await toolCatalog(client,signal)}:await client.callTool(params,{signal,timeout:60_000});}
+  try{await client.connect(transport);beforeCall?.();return method==='tools/list'?{tools:await toolCatalog(client,signal)}:await client.callTool(params,{signal,timeout:60_000});}
   catch(error){if(signal.aborted)throw new Error('App request cancelled.');if(error instanceof UnauthorizedError)throw new Error('This app needs authorization. Use Sign in or update its access token in Marketplace.');throw new Error('The app request failed. Check its connection, permissions, and tool arguments in Marketplace.');}
   finally{await client.close().catch(()=>{});}
 }
