@@ -136,6 +136,13 @@ input, textarea, select { border-radius: 10px; }
 .message-error .message-bubble { background: color-mix(in srgb, var(--red) 4%, var(--bg)); padding: 14px; border-radius: 12px; }
 .chat-event { font-size: 11px; line-height: 1.7; margin: 0 0 23px; }
 .approval-card { padding: 20px; border-radius: 16px; }
+.approval-class { margin-left: auto; text-transform: uppercase; font-weight: 600; }
+.approval-purpose small { display: block; color: var(--muted); font-size: 11px; margin-top: 5px; }
+.approval-scope-help { color: var(--muted); }
+.approval-card footer { flex-wrap: wrap; }
+.approval-card pre { max-height: 140px; padding: 8px; background: var(--bg); border-radius: 6px; }
+.approval-spend { border: 2px solid var(--accent); }
+.approval-cost { color: var(--accent); font-weight: 600; }
 .message-file { border-radius: 12px; }
 .details-rail { width: 292px; background: var(--rail-bg); border-left-color: color-mix(in srgb, var(--border) 65%, transparent); }
 .details-rail>header { height: 82px; padding: 0 22px; border-bottom-color: color-mix(in srgb, var(--border) 38%, transparent); }
