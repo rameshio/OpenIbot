@@ -35,6 +35,8 @@ export class Store {
         throw new Error(`Cannot load I Bot data at ${this.path}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
+    const state=this.data.state;
+    if(!state.bots.some(bot=>bot.id===state.mainBotId))state.mainBotId=state.bots.find(bot=>bot.id==='chief')?.id??state.bots[0]?.id;
     // Upgrade a single saved provider without decrypting or exposing its credential.
     const settings = this.data.state.settings;
     if(!Number.isSafeInteger(settings.policyVersion)||settings.policyVersion<1)settings.policyVersion=1;

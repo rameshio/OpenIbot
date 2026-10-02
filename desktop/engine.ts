@@ -94,8 +94,8 @@ export function createEngine(options: EngineOptions) {
     state.bots.push(bot);publish();return bot;
   }
   function createChat(args:Record<string,unknown>):Chat {
-    const ids=Array.isArray(args.botIds)?args.botIds.filter((id):id is string=>typeof id==='string'):['chief'];
-    if(!ids.length)ids.push('chief');ids.forEach(botById);
+    const ids=Array.isArray(args.botIds)?args.botIds.filter((id):id is string=>typeof id==='string'):[state.mainBotId!];
+    if(!ids.length)ids.push(state.mainBotId!);ids.forEach(botById);
     const chat:Chat={id:randomUUID(),title:str(args.title,'New chat').slice(0,120),botIds:[...new Set(ids)],createdAt:timestamp(),updatedAt:timestamp(),status:'idle'};
     state.chats.push(chat);publish();return chat;
   }
@@ -361,6 +361,7 @@ export function createEngine(options: EngineOptions) {
     switch(command) {
       case 'state.get':return snapshot();
       case 'bot.create':return structuredClone(createBot(args));
+      case 'bot.setMain': {const bot=botById(args.id);state.mainBotId=bot.id;publish();return structuredClone(bot);}
       case 'bot.update': {
         const bot=botById(args.id??args.botId);if('name'in args)bot.name=required(args.name,'Bot name',60);if('role'in args)bot.role=required(args.role,'Bot role',240);
         if('instructions'in args)bot.instructions=str(args.instructions).slice(0,20000);if('memory'in args)bot.memory=str(args.memory).slice(0,30000);

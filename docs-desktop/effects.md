@@ -42,7 +42,7 @@ After sender validation in `desktop/main.ts`, every invoke request receives a ho
 | Effect/IPC IDs | Transport | Class | Actor | Enforcement |
 |---|---|---|---|---|
 | `state.get`, `app.info`, `runtime.status`, `workspace.inspect` | main process/local Docker | read | user | Validated IPC, direct |
-| `bot.create`, `bot.update` | state | admin / persist | user | Engine user context, direct |
+| `bot.create`, `bot.update`, `bot.setMain` | state | admin / persist | user | Engine user context, direct; main-bot selection is user-only and absent from the model tool registry |
 | `chat.create`, `chat.send`, `chat.resume`, `routine.run` | state/run initiation | admin / execute | user | Engine user context; ensuing system/model/agent work uses effect authorization |
 | `chat.pause`, `media.cancel` | cancellation | admin | user | Engine user context, direct cancellation |
 | `chat.delete`, `routine.delete`, `skill.delete`, `provider.delete`, `connector.delete` | state/credential removal | delete | user | Engine user context; connector removal invalidates policy/grants |

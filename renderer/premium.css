@@ -143,6 +143,19 @@ input, textarea, select { border-radius: 10px; }
 .approval-card pre { max-height: 140px; padding: 8px; background: var(--bg); border-radius: 6px; }
 .approval-spend { border: 2px solid var(--accent); }
 .approval-cost { color: var(--accent); font-weight: 600; }
+.bot-navigation-row { position: relative; display: flex; align-items: center; }
+.bot-navigation-row>.sidebar-item { flex: 1; min-width: 0; padding-right: 34px; }
+.main-bot-card { margin: 0 9px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+.main-bot-card>.sidebar-item { margin: 0; width: 100%; }
+.main-bot-star { color: var(--accent); fill: var(--accent); flex-shrink: 0; }
+.bot-navigation-menu { position: absolute; right: 14px; z-index: 4; }
+.bot-navigation-menu[open] { z-index: 20; }
+.bot-navigation-menu>summary { cursor: pointer; list-style: none; padding: 5px; color: var(--muted); border-radius: 5px; }
+.bot-navigation-menu>summary::-webkit-details-marker { display: none; }
+.bot-navigation-menu>summary:focus-visible { outline: 2px solid var(--accent); }
+.bot-navigation-menu>div { position: absolute; top: 28px; right: 0; width: 215px; padding: 6px; background: var(--elevated); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 8px 24px #0005; }
+.bot-navigation-menu>div>button { display: flex; align-items: center; gap: 8px; padding: 9px; width: 100%; text-align: left; font-size: 12px; border-radius: 5px; }
+.bot-navigation-menu>div>button:hover { background: var(--hover); }
 .message-file { border-radius: 12px; }
 .details-rail { width: 292px; background: var(--rail-bg); border-left-color: color-mix(in srgb, var(--border) 65%, transparent); }
 .details-rail>header { height: 82px; padding: 0 22px; border-bottom-color: color-mix(in srgb, var(--border) 38%, transparent); }

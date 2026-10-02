@@ -239,3 +239,22 @@ Current verification changes: `desktop/engine.ts`, `shared/types.ts`, `renderer/
 Review branch: `review/authorization`, created from `main`. Core authorization/classification/discovery share engine and type changes and are committed together; renderer/UI checks and documentation are separate commits. No merge or push requested/performed. No secret, runtime state, dependency directory, build output or screenshot is staged.
 
 Open risks: packaged release and real connector/account behavior were not tested in this verification (**UNKNOWN**). Docker was not rerun; its two tests remain opt-in skips and earlier integration results are historical. Server implementation trust and changes after a run's first discovery remain outside these checks. Egress, credential isolation, durable audit/replay and OneDrive risks from the audit remain open.
+
+## Video reference: bot names, creation and main bot — 2026-10-01
+
+Inspected the supplied 114-second recording with sampled frames, including the pinned primary bot and its replacement menu. Messages inside the recording were treated as reference content, not instructions to perform their tasks. Existing name editing (`BotDialog`/`bot.update`), manual bot creation, and Chief's authorized `create_bot` tool were retained. Added accessible per-bot options for Rename, Make main bot, and Create new bot, reusing existing dialogs. The main bot appears in a separate starred sidebar card and is starred in the recipient/chat header. A user-only `bot.setMain` IPC persists the selection; default new chats and group selection use it. Existing chats keep their bot IDs and names are changed without replacing identity, memory or workspace. Legacy profiles default to Chief without changing bot order or granting permissions.
+
+Tests were written and run first: both failed for missing main-bot state/navigation, then passed after implementation. The rendered navigation test uses a fixture avatar image to avoid invoking the browser animation clock during static rendering; the desktop fixture exercises actual animated avatars. The engine test also verifies that a model run routes to the selected main bot, invalid IDs do not change selection, and names/selection survive restart. Existing orchestration tests still cover Chief creating and delegating to specialists.
+
+| Command | Pass | Fail | Skip | Result |
+|---|---:|---:|---:|---|
+| `npm test` | 68 | 0 | 2 | 70 tests; Docker remains opt-in |
+| `npm run typecheck` | — | 0 | — | Exit 0 |
+| `npm run build` | — | 0 | — | Exit 0; existing large-chunk warning remains |
+| `node scripts/test-bots-desktop.mjs` | 9 checks | 0 | 0 | Rename/create/replace/star/default recipient/restart, no renderer errors |
+| `npm run test:desktop` | 9 checks | 0 | 0 | Existing smoke suite unchanged and green |
+| `git diff --check` | — | 0 | — | No whitespace errors |
+
+Files changed: `desktop/engine.ts`, `desktop/main.ts`, `desktop/store.ts`, `shared/types.ts`, new `shared/bots.ts`, `renderer/App.tsx`, `renderer/Dialogs.tsx`, `renderer/premium.css`, new `renderer/BotNavigation.tsx`, `tests-desktop/main-bot.test.ts`, `tests-desktop/bot-navigation-ui.test.ts`, `scripts/test-bots-desktop.mjs`, `docs-desktop/effects.md` and this file. No dependencies were added. Generated video-review frames and the visually inspected `artifacts/bots/main-bot.png` are ignored; the normal user profile was not modified by the isolated tests.
+
+Open risks: packaged release and real-provider specialist creation were not exercised in this follow-up (**UNKNOWN**); the existing local orchestration fixture passed. Main-bot selection changes the default recipient, not permissions or a bot's saved specialist instructions. The original recording's other menus (such as deletion, unread and hide) are outside the requested name/create/main-bot scope. Existing audit risks remain open. Changes stay on `review/authorization`; no merge or push.
