@@ -24,7 +24,7 @@ Evidence: `artifacts/runtime-integration.log`,
 screenshots in `artifacts/desktop/`. The portable executable's SHA-256 checksum
 is saved in `release/SHA256SUMS.txt`.
 
-The working desktop shortcut is `C:\Users\rames\OneDrive\Desktop\I Bot.lnk`.
+The working desktop shortcut is `C:\Users\rames\OneDrive\Desktop\OpenIbot.lnk`.
 It opens `release-auth/win-unpacked/I Bot.exe`. The current portable release
 is `release-auth/I-Bot-0.4.1-x64.exe`, with its checksum in
 `release-auth/SHA256SUMS.txt`.

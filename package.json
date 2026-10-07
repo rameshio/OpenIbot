@@ -1,9 +1,9 @@
 {
-  "name": "ibot-desktop",
-  "productName": "I Bot",
+  "name": "openibot-desktop",
+  "productName": "OpenIbot",
   "version": "0.5.1",
   "description": "A desktop home for your team of persistent AI bots.",
-  "author": "I Bot",
+  "author": "OpenIbot",
   "private": true,
   "main": "dist-desktop/main.cjs",
   "scripts": {
@@ -44,7 +44,7 @@
   },
   "build": {
     "appId": "app.ibot.desktop",
-    "productName": "I Bot",
+    "productName": "OpenIbot",
     "directories": {
       "output": "release"
     },
@@ -66,7 +66,7 @@
       "target": "portable",
       "icon": "assets/icon.ico",
       "signExecutable": false,
-      "artifactName": "I-Bot-${version}-${arch}.${ext}"
+      "artifactName": "OpenIbot-${version}-${arch}.${ext}"
     }
   }
 }

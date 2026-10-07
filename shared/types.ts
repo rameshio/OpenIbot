@@ -4,6 +4,7 @@ export type AvatarAccessory = 'none' | 'glasses' | 'headphones' | 'halo' | 'cap'
 export type AvatarExpression = 'neutral' | 'attentive' | 'surprised' | 'excited' | 'happy' | 'laughing' | 'angry' | 'sad' | 'scared' | 'suspicious' | 'confused' | 'curious' | 'proud' | 'shy' | 'unimpressed' | 'sleepy';
 export interface Bot { modelConnectionId?:string; networkHosts?: string[]; id: string; name: string; role: string; instructions: string; memory: string; color: string; avatar: AvatarShape; accessory?: AvatarAccessory; avatarImage?: string; expression?: AvatarExpression; completedAt?: string; status: BotStatus; createdAt: string; }
 export interface Chat { untrustedContext?:boolean; id: string; title: string; botIds: string[]; createdAt: string; updatedAt: string; status: 'idle' | 'running' | 'paused' | 'error'; }
+export interface BotConversation { bot: Bot; chat: Chat; }
 export interface Attachment { id: string; name: string; path: string; size: number; botId?: string; }
 export interface Message { id: string; chatId: string; botId?: string; role: 'user' | 'assistant' | 'event' | 'error'; content: string; createdAt: string; attachments?: Attachment[]; }
 export interface Routine { id: string; botId: string; name: string; prompt: string; time: string; days: number[]; timezone: string; enabled: boolean; lastRunAt?: string; nextRunAt?: string; lastStatus?: string; }

@@ -18,7 +18,7 @@ const server=createServer(async(req,res)=>{let body='';for await(const chunk of 
  json({error:'Fixture endpoint not found'},404);
 });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${server.address().port}`;
 const env={...process.env,IBOT_DATA_DIR:dataDir,IBOT_TEST:'1'};delete env.ELECTRON_RUN_AS_NODE;
-let application;const errors=[];const launch=async()=>{application=await electron.launch({...(process.env.IBOT_TEST_EXECUTABLE?{executablePath:process.env.IBOT_TEST_EXECUTABLE,args:['--use-fake-device-for-media-stream']}:{args:[root,'--use-fake-device-for-media-stream']}),env,timeout:60000});const page=await application.firstWindow();await application.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(30000);await page.getByRole('heading',{name:'What would you like to get done?'}).waitFor();return page;};
+let application;const errors=[];const launch=async()=>{application=await electron.launch({...(process.env.IBOT_TEST_EXECUTABLE?{executablePath:process.env.IBOT_TEST_EXECUTABLE,args:['--use-fake-device-for-media-stream']}:{args:[root,'--use-fake-device-for-media-stream']}),env,timeout:60000});const page=await application.firstWindow();await application.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(30000);await page.getByRole('textbox',{name:'Message your bot'}).waitFor();return page;};
 const stateOf=page=>page.evaluate(()=>window.ibot.invoke('state.get'));
 const shot=async(page,name)=>{
  if(process.env.IBOT_TEST_EXECUTABLE){

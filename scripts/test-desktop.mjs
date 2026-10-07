@@ -10,7 +10,7 @@ const env={...process.env,IBOT_DATA_DIR:dataDir,IBOT_TEST:process.env.IBOT_RUNTI
 delete env.ELECTRON_RUN_AS_NODE;
 let application;
 const errors=[];
-const launch=async()=>{application=await electron.launch({...(process.env.IBOT_TEST_EXECUTABLE?{executablePath:process.env.IBOT_TEST_EXECUTABLE,args:[]}:{args:[root]}),env,timeout:60000});const window=await application.firstWindow();window.setDefaultTimeout(30000);window.on('pageerror',error=>errors.push(error.message));await window.getByRole('heading',{name:'What would you like to get done?'}).waitFor({timeout:30000});return window;};
+const launch=async()=>{application=await electron.launch({...(process.env.IBOT_TEST_EXECUTABLE?{executablePath:process.env.IBOT_TEST_EXECUTABLE,args:[]}:{args:[root]}),env,timeout:60000});const window=await application.firstWindow();window.setDefaultTimeout(30000);window.on('pageerror',error=>errors.push(error.message));await window.getByRole('textbox',{name:'Message your bot'}).waitFor({timeout:30000});return window;};
 try{
  let page=await launch();
  const initial=await page.evaluate(()=>window.ibot.invoke('state.get'));
@@ -19,11 +19,15 @@ try{
  assert.equal(await page.getByRole('tab',{name:'Avatars',exact:true}).count(),0,'No separate avatar page');
  await page.screenshot({path:path.join(root,'artifacts','desktop','new-chat.png')});
  await page.getByRole('button',{name:'Create a bot',exact:true}).click();
+ await page.locator('.messages').getByText("I'm ready to help. What would you like me to help you with?",{exact:true}).waitFor();
+ assert.equal(await page.getByRole('dialog').count(),0,'Creation goes directly into conversation');
+ assert.equal(await page.getByRole('button',{name:'Research a topic',exact:true}).count(),0,'No preset suggestion menu');
+ await page.getByRole('button',{name:'Toggle bot details',exact:true}).click();await page.getByRole('button',{name:'Bot settings',exact:true}).click();
  await page.getByRole('textbox',{name:'Name',exact:true}).fill('Researcher');
  await page.getByRole('textbox',{name:'Role',exact:true}).fill('Research and verify sources');
  await page.getByRole('textbox',{name:'Instructions',exact:true}).fill('Collect evidence and cite sources.');
- await page.getByRole('button',{name:'Create bot',exact:true}).click();
- await page.getByRole('heading',{name:'What should Researcher work on?'}).waitFor();
+ await page.getByRole('button',{name:'Save changes',exact:true}).click();
+ await page.getByRole('heading',{name:'Researcher',level:1,exact:true}).waitFor();
  let state=await page.evaluate(()=>window.ibot.invoke('state.get'));
  assert.equal(state.bots.length,2);
  const researcher=state.bots.find(bot=>bot.name==='Researcher');
@@ -32,7 +36,7 @@ try{
  await page.getByRole('textbox',{name:'Message your bot'}).fill('Prepare a brief from these sources.');
  await page.getByRole('button',{name:'Send message',exact:true}).click();
  await page.getByRole('dialog').waitFor();
- assert.equal((await page.evaluate(()=>window.ibot.invoke('state.get'))).chats.length,0,'No pretend run without a provider');
+ assert.equal((await page.evaluate(()=>window.ibot.invoke('state.get'))).chats.length,1,'No extra chat or pretend run without a provider');
  await page.keyboard.press('Escape');
  await page.evaluate(()=>window.ibot.invoke('settings.update',{settings:{theme:'light',motion:'reduced'}}));
  await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
@@ -50,7 +54,7 @@ try{
  page=await launch();
  state=await page.evaluate(()=>window.ibot.invoke('state.get'));
  assert.equal(state.bots.length,2,'Bots persist after restart');
- assert.equal(state.chats.length,1,'Chats persist after restart');
+ assert.equal(state.chats.length,2,'Onboarding and team chats persist after restart');
  assert.equal(state.bots[0].memory,'Prefer concise briefings with sources.');
  const vault=await application.evaluate(({safeStorage})=>{if(!safeStorage.isEncryptionAvailable())return false;const fixture='ibot-synthetic-vault-probe';const encrypted=safeStorage.encryptString(fixture);return safeStorage.decryptString(encrypted)===fixture&&!encrypted.toString().includes(fixture);});
  assert(vault,'Windows safeStorage must encrypt and decrypt a synthetic test value');

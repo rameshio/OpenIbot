@@ -7,7 +7,7 @@ type Save=(data:ConnectorCredentials)=>void;
 function oauthProvider(data:ConnectorCredentials,save:Save,redirect:(url:URL)=>Promise<void>,state:string):OAuthClientProvider {
   let verifier='';
   const issuer=(ctx?:OAuthClientInformationContext)=>ctx?.issuer??data.issuer;
-  return {redirectUrl:data.redirectUrl,clientMetadata:{client_name:'I Bot Desktop',redirect_uris:[data.redirectUrl],grant_types:['authorization_code','refresh_token'],response_types:['code'],token_endpoint_auth_method:'none',application_type:'native'},state:()=>state,
+  return {redirectUrl:data.redirectUrl,clientMetadata:{client_name:'OpenIbot Desktop',redirect_uris:[data.redirectUrl],grant_types:['authorization_code','refresh_token'],response_types:['code'],token_endpoint_auth_method:'none',application_type:'native'},state:()=>state,
     clientInformation:ctx=>ctx?data.clients[ctx.issuer]:undefined,
     saveClientInformation:(client,ctx)=>{if(!ctx)throw new Error('Missing authorization issuer.');data.clients[ctx.issuer]=client;save(data);},
     tokens:ctx=>{const id=issuer(ctx);return id?data.tokens[id]:undefined;},
@@ -18,7 +18,7 @@ function oauthProvider(data:ConnectorCredentials,save:Save,redirect:(url:URL)=>P
   };
 }
 function clientAndTransport(url:string,signal:AbortSignal,authProvider?:OAuthClientProvider|{token:()=>Promise<string|undefined>}) {
-  const client=new Client({name:'I Bot',version:'0.5.0'});
+  const client=new Client({name:'OpenIbot',version:'0.5.0'});
   const transport=new StreamableHTTPClientTransport(new URL(validateEndpoint(url)),{authProvider,fetch:(input,init)=>fetch(input,{...init,redirect:'error',signal:AbortSignal.any([signal,AbortSignal.timeout(60_000),...(init?.signal?[init.signal]:[])])})});
   return {client,transport};
 }
@@ -42,8 +42,8 @@ export async function signInConnector(url:string,open:(url:string)=>Promise<void
   const server=createServer((request,response)=>{
     response.setHeader('Content-Type','text/plain; charset=utf-8');response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');
     const target=new URL(request.url??'','http://127.0.0.1');
-    if(request.method!=='GET'||target.pathname!=='/callback'||target.searchParams.get('state')!==state){response.writeHead(400);response.end('This sign-in link is invalid. Return to I Bot and try again.');return;}
-    response.end('Sign-in received. You can close this tab and return to I Bot.');accept(target.searchParams);
+    if(request.method!=='GET'||target.pathname!=='/callback'||target.searchParams.get('state')!==state){response.writeHead(400);response.end('This sign-in link is invalid. Return to OpenIbot and try again.');return;}
+    response.end('Sign-in received. You can close this tab and return to OpenIbot.');accept(target.searchParams);
   });
   await new Promise<void>((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   const address=server.address();if(!address||typeof address==='string'){server.close();throw new Error('Could not prepare browser sign-in.');}

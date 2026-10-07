@@ -30,7 +30,7 @@ const server=createServer(async(req,res)=>{
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${server.address().port}`;
 const env={...process.env,IBOT_DATA_DIR:dataDir,IBOT_TEST:'1'};delete env.ELECTRON_RUN_AS_NODE;delete env.IBOT_DEV_URL;delete env.IBOT_RUNTIME_INTEGRATION;
 let application;const errors=[];
-const launch=async()=>{application=await electron.launch({args:[root],env,timeout:60000});const page=await application.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));await page.getByRole('heading',{name:'What would you like to get done?'}).waitFor();return page;};
+const launch=async()=>{application=await electron.launch({args:[root],env,timeout:60000});const page=await application.firstWindow();page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));await page.getByRole('textbox',{name:'Message your bot'}).waitFor();return page;};
 const send=async(page,text)=>{const previous=await page.evaluate(()=>window.ibot.invoke('state.get').then(s=>s.messages.filter(m=>m.role==='user').at(-1)?.id));await page.getByRole('textbox',{name:'Message your bot'}).fill(text);await page.getByRole('button',{name:'Send message',exact:true}).click();await page.waitForFunction(previous=>window.ibot.invoke('state.get').then(s=>{const latest=s.messages.filter(m=>m.role==='user').at(-1)?.id;return !!latest&&latest!==previous;}),previous);};
 const idle=async page=>{for(let attempt=0;attempt<150;attempt++){const done=await page.evaluate(async()=>{const state=await window.ibot.invoke('state.get');return state.chats.every(chat=>chat.status!=='running');});if(done)return;await page.waitForTimeout(100);}assert.fail('Run did not become idle');};
 try{

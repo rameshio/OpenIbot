@@ -177,7 +177,7 @@ export function createRuntime(options: RuntimeOptions): RuntimeService {
   function verifyOwner(object: DockerObject, botId: string): void {
     const actual = object.Config?.Labels || object.Labels || {};
     if (actual[MANAGED_LABEL] !== 'true' || actual[INSTALL_LABEL] !== installation || actual[BOT_LABEL] !== botId) {
-      throw new Error('Refusing to access a Docker resource that is not owned by this bot and this I Bot installation.');
+      throw new Error('Refusing to access a Docker resource that is not owned by this bot and this OpenIbot installation.');
     }
   }
   async function lookup(kind: 'container' | 'network' | 'volume', name: string): Promise<DockerObject | undefined> {

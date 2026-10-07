@@ -4,7 +4,7 @@ Settings → Models → Add provider follows three steps: select the provider,
 enter its API key, then load and choose a model. Save & use connection stores it
 and makes it active. Keep multiple accounts for the same provider by giving them
 different names. The model button beside the message composer searches models
-across saved connections and switches immediately, without restarting I Bot.
+across saved connections and switches immediately, without restarting OpenIbot.
 An existing run retains the provider, model, and key captured when it started.
 
 There are 41 presets covering direct APIs, model gateways, and local servers.

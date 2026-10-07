@@ -118,7 +118,7 @@ Classification controls operate on the saved catalog and call only `connector.cl
 
 ### Currently installed connector tools
 
-Inventory source: read-only inspection of the normal profile's saved `C:\Users\rames\AppData\Roaming\I Bot\state.json` on 2026-10-01. Only connector/tool metadata was inspected; secrets were not printed and the connection was not contacted. Disposable test fixtures are excluded.
+Inventory source: read-only inspection of the normal profile's saved `C:\Users\rames\AppData\Roaming\OpenIbot\state.json` on 2026-10-01. Only connector/tool metadata was inspected; secrets were not printed and the connection was not contacted. Disposable test fixtures are excluded.
 
 | Connector | Saved tool | Suggested class | Needs user confirmation |
 |---|---|---|---|

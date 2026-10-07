@@ -15,3 +15,37 @@
 .bot-avatar[data-custom=true][data-status=error] .custom-activity:after { background: var(--red); }
 :root[data-motion=reduced] .custom-activity, :root[data-motion=off] .custom-activity { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .custom-activity { animation: none !important; } }
+
+/* Scoped adaptation of the supplied HTML; geometry uses a 300-unit square. */
+.bot-avatar[data-renderer=grok] .bot-float { animation: none !important; }
+.bot-avatar[data-renderer=grok] .bot-accessory { color: var(--bot-eye); }
+.grok-drawing { position: relative; display: grid; place-items: center; width: 100%; height: 100%; --grok-unit: calc(var(--bot-size, 150px) / 300); }
+.grok-body { display: block; position: relative; background: var(--bot-color, #0c0c0c); outline: 1px solid var(--bot-outline, transparent); transform-origin: 50% 55%; transition: width .62s cubic-bezier(.45,.04,.2,1), height .62s cubic-bezier(.45,.04,.2,1), border-radius .62s cubic-bezier(.45,.04,.2,1), clip-path .62s cubic-bezier(.45,.04,.2,1), transform .62s cubic-bezier(.45,.04,.2,1); }
+.grok-face { position: absolute; inset: 0; transition: opacity .2s ease; }
+.grok-eye { position: absolute; display: block; background: var(--bot-eye, #fff); border-radius: 999px; transform-origin: center; transition: left .38s cubic-bezier(.4,0,.2,1), top .38s cubic-bezier(.4,0,.2,1), width .32s cubic-bezier(.4,0,.2,1), height .22s cubic-bezier(.4,0,.2,1), transform .34s cubic-bezier(.4,0,.2,1); }
+.grok-smile, .grok-brow, .grok-mark, .grok-orbit, .grok-spark { position: absolute; display: block; pointer-events: none; opacity: 0; transition: opacity .3s ease, transform .45s ease; }
+.grok-drawing [data-on=true] { opacity: 1; }
+.grok-smile { left: 18%; top: 42%; width: 46%; height: 24%; border: calc(6 * var(--grok-unit)) solid transparent; border-bottom-color: #74ff62; border-radius: 0 0 90px 90px; transform: rotate(-16deg) scale(.7); }
+.grok-smile[data-on=true] { transform: rotate(-12deg) scale(1); }
+.grok-brow { left: 46%; top: 14%; width: 34%; height: 8%; border-top: calc(7 * var(--grok-unit)) solid var(--bot-eye, #fff); border-radius: 40px 40px 0 0; transform: rotate(8deg); }
+.grok-mark { left: 50%; background: var(--bot-color, #0c0c0c); transform: translateX(-50%) scale(.2); transition: opacity .3s ease, transform .45s ease, top .45s ease, border-radius .3s ease; }
+.grok-mark[data-on=true] { transform: translateX(-50%) scale(1); }
+.grok-attention { position: absolute; display: grid; place-items: center; right: 8%; top: 9%; width: 22%; height: 22%; border-radius: 50%; background: #2496e8; color: white; font: 700 calc(44 * var(--grok-unit))/1 sans-serif; box-shadow: 0 0 0 calc(5 * var(--grok-unit)) var(--bg); }
+.grok-attention-error { background: var(--red, #e8483f); }
+.grok-orbit, .grok-spark { inset: 6%; border-radius: 50%; }
+.grok-orbit i, .grok-spark i { position: absolute; display: block; inset: 0; border-radius: 50%; border: calc(5 * var(--grok-unit)) solid transparent; }
+.grok-orbit i { border-top-color: #74ff62; border-right-color: #ff4fd0; border-bottom-color: #49c6ff; }
+.grok-orbit i:nth-child(2) { inset: 9%; border-width: calc(4 * var(--grok-unit)); border-top-color: #49c6ff; border-right-color: #ffe14a; border-bottom-color: transparent; }
+.grok-spark i { inset: 22%; border-top-color: var(--bot-eye, #111); }
+.grok-drawing[data-playing=true] .grok-body[data-motion=bob] { animation: grokBob 3.2s ease-in-out infinite; }
+.grok-drawing[data-playing=true] .grok-body[data-motion=shake] { animation: grokShake .45s linear infinite; }
+.grok-drawing[data-playing=true] .grok-body[data-motion=pulse] { animation: grokPulse 1.1s ease-in-out infinite; }
+.grok-drawing[data-playing=true] .grok-orbit[data-on=true] i { animation: grokSpin 1.05s linear infinite; }
+.grok-drawing[data-playing=true] .grok-orbit[data-on=true] i:nth-child(2) { animation-duration: .75s; animation-direction: reverse; }
+.grok-drawing[data-playing=true] .grok-spark[data-on=true] i { animation: grokSpin .7s linear infinite; }
+.grok-drawing[data-playing=false] *, :root[data-motion=reduced] .grok-drawing *, :root[data-motion=off] .grok-drawing * { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .grok-drawing * { animation: none !important; transition: none !important; } }
+@keyframes grokSpin { to { transform: rotate(360deg); } }
+@keyframes grokBob { 0%,100% { translate: 0 0; } 50% { translate: 0 calc(-7 * var(--grok-unit)); } }
+@keyframes grokShake { 0%,100% { translate: 0 0; } 25% { translate: calc(-4 * var(--grok-unit)) var(--grok-unit); } 75% { translate: calc(4 * var(--grok-unit)) calc(-1 * var(--grok-unit)); } }
+@keyframes grokPulse { 0%,100% { scale: 1; } 50% { scale: 1.06; } }

@@ -20,6 +20,6 @@ npx tsx --test tests-desktop/runtime-integration.test.ts
 Remove-Item Env:IBOT_RUNTIME_INTEGRATION
 ```
 
-Integration tests stop their labelled test computers when finished and retain test data under the printed temporary directory. They do not delete or stop unrelated containers. The image stays available. Local routines and bots require the PC, Docker Desktop, and the I Bot background process to remain running; this release does not provide an always-on cloud computer.
+Integration tests stop their labelled test computers when finished and retain test data under the printed temporary directory. They do not delete or stop unrelated containers. The image stays available. Local routines and bots require the PC, Docker Desktop, and the OpenIbot background process to remain running; this release does not provide an always-on cloud computer.
 
 Reference documentation: [Docker resource limits](https://docs.docker.com/engine/containers/resource_constraints/), [localhost port publishing](https://docs.docker.com/get-started/docker-concepts/running-containers/publishing-ports/), and [noVNC embedding](https://github.com/novnc/noVNC/blob/master/docs/EMBEDDING.md).

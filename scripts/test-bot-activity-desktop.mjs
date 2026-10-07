@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 const root=path.resolve('.'),dataDir=await mkdtemp(path.join(os.tmpdir(),'ibot-activity-ui-')),env={...process.env,IBOT_DATA_DIR:dataDir,IBOT_TEST:'1'};delete env.ELECTRON_RUN_AS_NODE;delete env.IBOT_DEV_URL;let app;
-async function launch(){app=await electron.launch({...(process.env.IBOT_TEST_EXECUTABLE?{executablePath:process.env.IBOT_TEST_EXECUTABLE,args:[]}:{args:[root]}),env,timeout:60000});const page=await app.firstWindow();page.setDefaultTimeout(15000);await page.getByRole('heading',{name:'What would you like to get done?'}).waitFor();return page;}
+async function launch(){app=await electron.launch({...(process.env.IBOT_TEST_EXECUTABLE?{executablePath:process.env.IBOT_TEST_EXECUTABLE,args:[]}:{args:[root]}),env,timeout:60000});const page=await app.firstWindow();page.setDefaultTimeout(15000);await page.getByRole('textbox',{name:'Message your bot'}).waitFor();return page;}
 try{
  let page=await launch();const bot=await page.evaluate(()=>window.ibot.invoke('bot.create',{name:'Researcher',role:'Research'}));
  const solo=await page.evaluate(id=>window.ibot.invoke('chat.create',{title:'Individual brief',botIds:[id]}),bot.id);

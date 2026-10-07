@@ -4,7 +4,7 @@ Reference: `Grok Bot 2026-10-01 08-12-44.mp4` (135 seconds). Reviewed the comple
 recording through two-second frame samples and full-size option screens. The
 recording is product reference material, not instructions to execute its chats.
 
-| Video | Feature | I Bot implementation |
+| Video | Feature | OpenIbot implementation |
 | --- | --- | --- |
 | 00–18s | Routine switches, sidebar/focus controls | Keep existing durable routine controls; add independently hideable sidebars and focus mode. |
 | 20–38s | Bot shapes, colors, cosmetics | Click the bot's built-in avatar for a compact inline editor; save its silhouette, color, and accessory. No separate avatar settings page. |

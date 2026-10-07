@@ -32,7 +32,7 @@ export class Store {
         this.data.routineSlots ??= {};
       } catch {
         let backup:StoredData;
-        try{backup=loadState(`${this.path}.bak`);}catch{throw new Error('Cannot load I Bot data or its backup. Both files have been preserved.');}
+        try{backup=loadState(`${this.path}.bak`);}catch{throw new Error('Cannot load OpenIbot data or its backup. Both files have been preserved.');}
         const quarantinePath=`${this.path}.corrupt-${randomUUID()}`;
         renameSync(this.path,quarantinePath);this.data=backup;this.data.secrets??={};this.data.routineSlots??={};this.recovery={quarantinePath};
       }
@@ -60,7 +60,7 @@ export class Store {
     for (const chat of this.data.state.chats) {
       if (chat.status === 'running') {
         chat.status = 'paused';
-        this.data.state.messages.push({ id: randomUUID(), chatId: chat.id, role: 'event', content: 'This run stopped when I Bot closed. Resume explicitly to continue from the saved conversation.', createdAt: new Date().toISOString() });
+        this.data.state.messages.push({ id: randomUUID(), chatId: chat.id, role: 'event', content: 'This run stopped when OpenIbot closed. Resume explicitly to continue from the saved conversation.', createdAt: new Date().toISOString() });
       }
     }
     for (const bot of this.data.state.bots) if (['thinking', 'working', 'waiting'].includes(bot.status)) bot.status = 'idle';
