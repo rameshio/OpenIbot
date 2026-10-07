@@ -12,12 +12,13 @@ export function initialState(): AppState {
       { id: 'skill-verify', name: 'Verify before delivery', description: 'Check outputs against the original request.', instructions: 'Inspect actual files, run relevant checks, and report the evidence. Never describe an intended action as completed. Clearly list remaining failures.', botIds: [], installed: false, source: 'builtin' },
       { id: 'skill-handoff', name: 'Clear team handoffs', description: 'Give the next bot the context and files it needs.', instructions: 'Include the objective, completed work, exact file paths, evidence, open questions, and next action in every handoff.', botIds: [], installed: false, source: 'builtin' },
     ],
-    settings: { theme: 'dark', language: 'en', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', motion: 'full', closeToTray: true, notifications: true, autoReview: true, rules: [], provider: { provider: 'openai', model: '', baseUrl: 'https://api.openai.com/v1', hasKey: false }, connections: [], maxSteps: 30, maxBots: 8 } };
+    settings: { theme: 'dark', language: 'en', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', motion: 'full', closeToTray: true, notifications: true, autoReview: true, rules: [], policyVersion: 1, provider: { provider: 'openai', model: '', baseUrl: 'https://api.openai.com/v1', hasKey: false }, connections: [], maxSteps: 30, maxBots: 8 } };
 }
 
 /** Sync atomic snapshots serialize all mutations on Electron's main thread. Secrets are ciphertext only. */
 export class Store {
   readonly path: string;
+  readonly recovery?:{quarantinePath:string};
   data: StoredData;
   constructor(dataDir: string) {
     mkdirSync(dataDir, { recursive: true });
@@ -25,18 +26,22 @@ export class Store {
     this.data = { state: initialState(), secrets: {}, routineSlots: {} };
     if (existsSync(this.path)) {
       try {
-        const parsed = JSON.parse(readFileSync(this.path, 'utf8')) as StoredData;
-        if (parsed.state?.version !== 1 || !Array.isArray(parsed.state.bots) || !Array.isArray(parsed.state.chats)) throw new Error('Unsupported or invalid state');
+        const parsed = loadState(this.path);
         this.data = parsed;
         this.data.secrets ??= {};
         this.data.routineSlots ??= {};
-      } catch (error) {
-        // Never overwrite unreadable user data with an empty account.
-        throw new Error(`Cannot load I Bot data at ${this.path}: ${error instanceof Error ? error.message : String(error)}`);
+      } catch {
+        let backup:StoredData;
+        try{backup=loadState(`${this.path}.bak`);}catch{throw new Error('Cannot load OpenIbot data or its backup. Both files have been preserved.');}
+        const quarantinePath=`${this.path}.corrupt-${randomUUID()}`;
+        renameSync(this.path,quarantinePath);this.data=backup;this.data.secrets??={};this.data.routineSlots??={};this.recovery={quarantinePath};
       }
     }
+    const state=this.data.state;
+    if(!state.bots.some(bot=>bot.id===state.mainBotId))state.mainBotId=state.bots.find(bot=>bot.id==='chief')?.id??state.bots[0]?.id;
     // Upgrade a single saved provider without decrypting or exposing its credential.
     const settings = this.data.state.settings;
+    if(!Number.isSafeInteger(settings.policyVersion)||settings.policyVersion<1)settings.policyVersion=1;
     if (!Array.isArray(settings.connections)) {
       settings.connections = [];
       if (settings.provider.model) {
@@ -55,7 +60,7 @@ export class Store {
     for (const chat of this.data.state.chats) {
       if (chat.status === 'running') {
         chat.status = 'paused';
-        this.data.state.messages.push({ id: randomUUID(), chatId: chat.id, role: 'event', content: 'This run stopped when I Bot closed. Resume explicitly to continue from the saved conversation.', createdAt: new Date().toISOString() });
+        this.data.state.messages.push({ id: randomUUID(), chatId: chat.id, role: 'event', content: 'This run stopped when OpenIbot closed. Resume explicitly to continue from the saved conversation.', createdAt: new Date().toISOString() });
       }
     }
     for (const bot of this.data.state.bots) if (['thinking', 'working', 'waiting'].includes(bot.status)) bot.status = 'idle';
@@ -69,4 +74,11 @@ export class Store {
     renameSync(temp, this.path);
   }
   snapshot(): AppState { return structuredClone(this.data.state); }
+}
+
+function loadState(file:string):StoredData{
+ const parsed=JSON.parse(readFileSync(file,'utf8')) as StoredData,state=parsed?.state;
+ if(state?.version!==1||!state.settings||typeof state.settings!=='object'||!state.settings.provider||!Array.isArray(state.bots)||!state.bots.length||!Array.isArray(state.chats)||!Array.isArray(state.messages)||!Array.isArray(state.approvals)||!Array.isArray(state.routines)||!Array.isArray(state.connectors)||!Array.isArray(state.skills)||!Array.isArray(state.usage))throw new Error('Invalid state');
+ if(state.bots.some(bot=>!bot||typeof bot.id!=='string'||typeof bot.name!=='string'||typeof bot.instructions!=='string')||new Set(state.bots.map(bot=>bot.id)).size!==state.bots.length)throw new Error('Invalid bots');
+ return parsed;
 }

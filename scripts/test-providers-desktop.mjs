@@ -24,7 +24,7 @@ let app;
 async function launch() {
   app = await electron.launch({...(process.env.IBOT_TEST_EXECUTABLE ? {executablePath: process.env.IBOT_TEST_EXECUTABLE, args: []} : {args: [root]}), env, timeout: 60000});
   const page = await app.firstWindow(); page.on('pageerror', error => errors.push(error.message));
-  await page.getByRole('heading', {name: 'What would you like to get done?'}).waitFor();
+  await page.getByRole('textbox', {name: 'Message your bot'}).waitFor();
   return page;
 }
 const stateOf = page => page.evaluate(() => window.ibot.invoke('state.get'));

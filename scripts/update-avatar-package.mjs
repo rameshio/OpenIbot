@@ -1,0 +1,23 @@
+// Refresh only the UI in the existing avatar package, preserving its backend.
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const asar=require('@electron/asar');
+const root=path.resolve('.');
+const archive=path.join(root,'release-avatar','win-unpacked','resources','app.asar');
+const staging=await fs.mkdtemp(path.join(root,'artifacts','avatar-package-'));
+const before=asar.extractFile(archive,'dist-desktop/main.cjs');
+asar.extractAll(archive,staging);
+await fs.cp(path.join(root,'dist-renderer'),path.join(staging,'dist-renderer'),{recursive:true});
+const next=archive+'.next';
+await asar.createPackage(staging,next);
+const after=asar.extractFile(next,'dist-desktop/main.cjs');
+if(!before.equals(after))throw new Error('Packaged backend changed');
+const html=asar.extractFile(next,'dist-renderer/index.html').toString();
+const entry=html.match(/src="([^"]+\.js)"/);
+if(!entry)throw new Error('Missing renderer entry');
+const bundle=asar.extractFile(next,path.join('dist-renderer',entry[1].replace(/^\.?\//,'').replaceAll('/',path.sep))).toString();
+if(bundle.includes('Bot expression')||bundle.includes('Your bot keeps this face at rest'))throw new Error('Manual expression picker remains in bundle');
+console.log(JSON.stringify({prepared:next,backendUnchanged:true,manualPickerAbsent:true,sha256:createHash('sha256').update(await fs.readFile(next)).digest('hex')},null,2));

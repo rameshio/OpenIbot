@@ -1,4 +1,5 @@
 FROM debian:bookworm-slim
+LABEL app.ibot.egress-image="2"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:0 \
@@ -19,6 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY entrypoint.sh /opt/ibot/entrypoint.sh
 COPY workspace_files.py /opt/ibot/workspace_files.py
 COPY run_command.py /opt/ibot/run_command.py
+COPY egress_proxy.py /opt/ibot/egress_proxy.py
+COPY chromium-egress.conf /etc/chromium.d/ibot-egress
 COPY desktop.html /usr/share/novnc/desktop.html
 COPY openbox-menu.xml /etc/xdg/openbox/menu.xml
 COPY workspace-welcome.html /opt/ibot/workspace-welcome.html

@@ -131,7 +131,7 @@ const BLINKS: number[] = (() => {
 const BLINK_DUR = 0.18
 
 function blinkLid(t: number): number {
-  // I Bot adaptation: desktop bots live beyond the original 15-minute timeline.
+  // OpenIbot adaptation: desktop bots live beyond the original 15-minute timeline.
   t = ((t % 900) + 900) % 900
   for (let i = 0; i < BLINKS.length; i++) {
     const start = BLINKS[i]!

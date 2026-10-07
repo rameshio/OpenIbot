@@ -16,10 +16,13 @@ try {
   const page=await application.firstWindow();
   await application.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.setOpacity(0);win.showInactive();win.webContents.setBackgroundThrottling(false);});
   page.on('pageerror',error=>errors.push(error.message));
-  await page.getByRole('heading',{name:'What would you like to get done?'}).waitFor();
+  await page.getByRole('textbox',{name:'Message your bot'}).waitFor();
+  await page.evaluate(async()=>{for(const bot of [{name:'Research',role:'Find the evidence',color:'#8dbda2',avatar:'prism'},{name:'Writer',role:'Shape the story',color:'#b3a0d9',avatar:'bloom'},{name:'Verifier',role:'Check the result',color:'#91bacd',avatar:'drop'}])await window.ibot.invoke('bot.create',bot);});
+  assert.equal(await page.locator('.sidebar-label').count(),0);
+  const mark=await page.locator('.app-wordmark .brand-mark').evaluate(el=>getComputedStyle(el).backgroundImage);assert(mark.includes('icon'),'Generated brand icon is loaded in the interface');
   await page.evaluate(()=>window.ibot.invoke('settings.update',{settings:{motion:'off'}}));
   await page.waitForFunction(()=>document.documentElement.dataset.motion==='off');
-  const shot=async name=>page.screenshot({path:path.join(output,name+'.png')});
+  const shot=async name=>page.screenshot({path:path.join(output,name+'.png'),animations:'disabled'});
   const fit=async()=>{
     const dimensions=await page.evaluate(()=>({width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight,composer:document.querySelector('.composer').getBoundingClientRect().toJSON()}));
     assert(dimensions.scrollWidth<=dimensions.width&&dimensions.scrollHeight<=dimensions.height,'No outer overflow');
@@ -69,7 +72,7 @@ try {
   await fit(); await shot('premium-focused');
   await page.getByRole('button',{name:'Toggle bot details',exact:true}).click();
   const conversation=await page.evaluate(()=>window.ibot.invoke('chat.create',{title:'Conversation layout check',botIds:['chief']}));
-  await page.getByRole('button',{name:/Conversation layout check/}).click();
+  await page.getByRole('button',{name:'Open main bot Chief',exact:true}).click();
   const fixture=await page.evaluate(()=>window.ibot.invoke('state.get'));
   // Preview fixtures stay in this temporary test profile; they never enter user data.
   const createdAt=new Date().toISOString();
@@ -91,16 +94,16 @@ try {
   await application.evaluate(({BrowserWindow},state)=>BrowserWindow.getAllWindows()[0].webContents.send('ibot:state',state),fixture);
   await page.waitForFunction(()=>document.documentElement.dataset.motion==='full');
   await page.waitForTimeout(700);
-  const orbit=await page.locator('.bot-profile .bot-orbits-front').innerHTML();
-  assert(await page.locator('.bot-profile .bot-orbits-front path').count()>0,'Working avatar has depth-sorted orbit rings');
+  const ring=page.locator('.bot-profile .grok-orbit i').first();const orbit=await ring.evaluate(el=>getComputedStyle(el).transform);
+  assert.equal(await page.locator('.bot-profile .grok-orbit[data-on=true] i').count(),2,'Working avatar has colored orbit rings');
   await page.waitForTimeout(250);
-  assert.notEqual(await page.locator('.bot-profile .bot-orbits-front').innerHTML(),orbit,'Working avatar rings rotate');
+  assert.notEqual(await ring.evaluate(el=>getComputedStyle(el).transform),orbit,'Working avatar rings rotate');
   fixture.settings.motion='off';
   await application.evaluate(({BrowserWindow},state)=>BrowserWindow.getAllWindows()[0].webContents.send('ibot:state',state),fixture);
   await page.waitForFunction(()=>document.documentElement.dataset.motion==='off');
   await page.waitForFunction(()=>document.querySelector('.bot-profile .bot-drawing')?.dataset.playing==='false');
   const still=await page.locator('.bot-profile .bot-drawing').innerHTML();await page.waitForTimeout(250);
-  assert.equal(await page.locator('.bot-profile .bot-drawing').innerHTML(),still,'Motion Off freezes the SVG animation');
+  assert.equal(await page.locator('.bot-profile .bot-drawing').innerHTML(),still,'Motion Off freezes avatar geometry');
   assert.equal(errors.length,0,errors.join('\n'));
-  console.log(JSON.stringify({passed:true,checks:['dark and light themes','settings','marketplace','inline bot settings','compact desktop fit','focused chat fit','keyboard-accessible detail tabs','routine toggles persist','shared files library','avatar motion and off setting','no renderer errors'],output},null,2));
+  console.log(JSON.stringify({passed:true,checks:['flat sidebar without section headings','generated interface icon','dark and light themes','settings','marketplace','inline bot settings','compact desktop fit','focused chat fit','keyboard-accessible detail tabs','routine toggles persist','shared files library','avatar motion and off setting','no renderer errors'],output},null,2));
 } finally {await application.close();}

@@ -38,7 +38,7 @@ test('real orchestration routes handoffs, workspace ownership, memory and verifi
   let chiefTurns=0;
   const {engine,options,files}=await setup(async request=>{
     if(request.system.startsWith('You are Researcher'))return result('Evidence collected.',[...(request.messages.some(m=>m.role==='tool')?[]:[call('write_file',{path:'/workspace/evidence.md',content:'Actual test evidence'})])]);
-    if(request.system.startsWith('You are Verifier'))return result('PASS: the supplied file evidence contains Actual test evidence.');
+    if(request.system.startsWith('You are Verifier'))return result(JSON.stringify({verdict:'pass',checks:[{name:'Evidence file',status:'pass',evidence:'The supplied file evidence contains Actual test evidence.'}]}));
     chiefTurns++;
     if(chiefTurns===1)return result('',[call('create_bot',{name:'Researcher',role:'Find evidence'})]);
     if(chiefTurns===2){const bot=engine.getState().bots.find(b=>b.name==='Researcher')!;return result('',[call('delegate',{botId:bot.id,task:'Write the evidence file.'})]);}
@@ -46,6 +46,8 @@ test('real orchestration routes handoffs, workspace ownership, memory and verifi
     return result('Prepared the evidence; independent verification reported PASS.');
   });
   t.after(()=>engine.shutdown());
+  // This orchestration test explicitly permits its mutations; authorization is tested separately.
+  await engine.invoke('settings.update',{rules:['admin','send','write','persist'].map(action=>({id:action,action,policy:'allow'}))});
   const chat=await engine.invoke('chat.create',{}) as Chat;
   await engine.invoke('chat.send',{chatId:chat.id,content:'Research this and save evidence.'});
   await engine.waitForIdle();
@@ -55,7 +57,7 @@ test('real orchestration routes handoffs, workspace ownership, memory and verifi
   assert.equal(files.get(researcher.id+'/workspace/evidence.md'),'Actual test evidence');
   assert.equal(files.has('chief/workspace/evidence.md'),false);
   assert(state.messages.some(m=>m.content.includes('returned their result to Chief')));
-  assert(state.messages.some(m=>m.botId!==researcher.id&&m.content.startsWith('PASS:')));
+  assert(state.messages.some(m=>m.botId!==researcher.id&&m.content.includes('"verdict":"pass"')));
   assert.equal(state.bots[0].memory,'Prefer cited briefings.');
   assert(state.usage.length>=7);
   await engine.shutdown();
@@ -77,6 +79,58 @@ test('approval blocks execution, pause cancels it, stale approval cannot execute
   assert.equal(engine.getState().approvals[0].status,'denied');
   await assert.rejects(engine.invoke('approval.resolve',{id:approval.id,approved:true}),/no longer pending/);
   assert.equal(commands.length,0);
+});
+
+test('human takeover pauses pending work and cannot be invoked by the agent',async t=>{
+ const {engine,commands}=await setup(async()=>result('',[call('run_shell',{command:'echo hello'})]));t.after(()=>engine.shutdown());
+ const chat=await engine.invoke('chat.create',{}) as Chat;await engine.invoke('chat.send',{chatId:chat.id,content:'Say hello'});await waitUntil(()=>engine.getState().approvals.length>0);
+ await assert.rejects(engine.invoke('bot.takeover',{id:'chief'},{actor:'agent'} as any));
+ await engine.invoke('bot.takeover',{id:'chief'});assert.equal(engine.getState().chats[0].status,'paused');assert.equal(commands.length,0);assert.equal(engine.getState().approvals[0].status,'denied');
+});
+
+test('verifier cannot mutate memory and a failed verdict prevents completion',async t=>{
+ let reviewed=false,chiefTurns=0;
+ const {engine}=await setup(async request=>{
+  if(request.system.startsWith('You are Verifier')){if(!reviewed){reviewed=true;return result('',[call('save_memory',{memory:'Untrusted verifier write'})]);}return result(JSON.stringify({verdict:'fail',checks:[{name:'deliverable',status:'fail',evidence:'Missing expected output'}]}));}
+  return ++chiefTurns===1?result('',[call('save_memory',{memory:'User preference'})]):result('Draft');
+ });t.after(()=>engine.shutdown());await engine.invoke('settings.update',{rules:[{id:'all',action:'*',policy:'allow'}]});
+ const chat=await engine.invoke('chat.create',{}) as Chat;await engine.invoke('chat.send',{chatId:chat.id,content:'Remember my preference'});await engine.waitForIdle();
+ assert.equal(engine.getState().chats[0].status,'paused');assert.equal(engine.getState().bots.find(b=>b.role==='Verifier')?.memory,'');assert.notEqual(engine.getState().bots[0].status,'done');
+ assert(engine.getState().messages.some(m=>m.content.includes('Verifier is read-only')));
+});
+
+test('untrusted file content forces review of subsequent persistence despite wildcard allow',async t=>{
+ let turns=0;const {engine}=await setup(async()=>++turns===1?result('',[call('read_file',{path:'source.txt'})]):turns===2?result('',[call('save_memory',{memory:'Hostile future instructions'})]):result('Stopped'));
+ t.after(()=>engine.shutdown());await engine.invoke('settings.update',{maxBots:1,rules:[{id:'all',action:'*',policy:'allow'}]});const chat=await engine.invoke('chat.create',{}) as Chat;
+ await engine.invoke('chat.send',{chatId:chat.id,content:'Read the source file'});await waitUntil(()=>engine.getState().approvals.some(a=>a.status==='pending'));
+ assert.equal(engine.getState().bots[0].memory,'');await engine.invoke('approval.resolve',{id:engine.getState().approvals.find(a=>a.status==='pending')!.id,approved:false});await engine.waitForIdle();assert.equal(engine.getState().bots[0].memory,'');
+});
+
+test('retrieved note content is tainted before the first model-controlled write',async t=>{
+ let turns=0;const {engine}=await setup(async()=>++turns===1?result('',[call('save_memory',{memory:'Untrusted replacement'})]):result('No change'));t.after(()=>engine.shutdown());
+ await engine.invoke('memory.save',{botId:'chief',topic:'Research',content:'Research reference: change standing instructions.'});await engine.invoke('settings.update',{maxBots:1,rules:[{id:'all',action:'*',policy:'allow'}]});const chat=await engine.invoke('chat.create',{}) as Chat;
+ await engine.invoke('chat.send',{chatId:chat.id,content:'Research the reference'});await waitUntil(()=>engine.getState().approvals.some(a=>a.status==='pending'));assert.equal(engine.getState().bots[0].memory,'');assert(engine.getState().chats[0].untrustedContext);await engine.invoke('chat.pause',{chatId:chat.id});
+});
+
+test('explicit routing reaches the selected bot and records a payload-free durable route',async t=>{
+ const requests:string[]=[];const {engine,options}=await setup(async request=>{requests.push(request.system);return result('Selected bot answered');});t.after(()=>engine.shutdown());
+ const bot=await engine.invoke('bot.create',{name:'Researcher',role:'Research'}) as Bot;const chat=await engine.invoke('chat.create',{}) as Chat;
+ await engine.invoke('chat.send',{chatId:chat.id,content:'@Researcher Find evidence'});await engine.waitForIdle();assert(requests[0].startsWith('You are Researcher'));
+ const activity=await engine.invoke('activity.get') as any;assert.equal(activity.routes[0].botId,bot.id);assert.equal(activity.routes[0].reason,'explicit-bot');assert(!JSON.stringify(activity.routes).includes('Find evidence'));
+ await engine.shutdown();const restored=createEngine(options);t.after(()=>restored.shutdown());assert.equal((await restored.invoke('activity.get') as any).routes[0].botId,bot.id);
+});
+
+test('a bot uses its chosen saved model profile without changing the global default',async t=>{
+ const models:string[]=[];const {engine}=await setup(async request=>{models.push(request.settings.model);return result('Reply');});t.after(()=>engine.shutdown());
+ const first=engine.getState().settings.activeConnectionId!;await engine.invoke('provider.save',{newConnection:true,provider:'compatible',model:'second-model',baseUrl:'http://localhost:1235/v1'});
+ await engine.invoke('bot.update',{id:'chief',modelConnectionId:first});const chat=await engine.invoke('chat.create',{}) as Chat;await engine.invoke('chat.send',{chatId:chat.id,content:'Use my bot profile'});await engine.waitForIdle();
+ assert.deepEqual(models,['test-model']);assert.equal(engine.getState().settings.provider.model,'second-model');await assert.rejects(engine.invoke('bot.update',{id:'chief',modelConnectionId:'missing'}));
+});
+
+test('new user input preempts a pending approval instead of executing the old action',async t=>{
+ let turns=0;const {engine,commands}=await setup(async()=>++turns===1?result('',[call('run_shell',{command:'echo old'})]):result('New instruction handled'));t.after(()=>engine.shutdown());
+ const chat=await engine.invoke('chat.create',{}) as Chat;await engine.invoke('chat.send',{chatId:chat.id,content:'Old task'});await waitUntil(()=>engine.getState().approvals.length>0);
+ await engine.invoke('chat.send',{chatId:chat.id,content:'New instruction'});await engine.waitForIdle();assert.equal(commands.length,0);assert.equal(engine.getState().approvals[0].status,'denied');assert(engine.getState().messages.some(m=>m.content==='New instruction handled'));
 });
 
 test('approved tool runs exactly once and blocking rules take precedence',async t=>{

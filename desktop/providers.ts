@@ -4,7 +4,7 @@ import { providerDefinition } from '../shared/providers';
 export interface ToolDefinition { name: string; description: string; parameters: Record<string, unknown>; }
 export interface ToolCall { id: string; name: string; arguments: Record<string, unknown>; }
 export interface ModelMessage { role: 'user' | 'assistant' | 'tool'; content: string; calls?: ToolCall[]; callId?: string; rawOutput?: unknown[]; image?: string; }
-export interface ModelRequest { settings: ProviderSettings; apiKey: string; system: string; messages: ModelMessage[]; tools: ToolDefinition[]; signal: AbortSignal; onRetry?: (message: string)=>void; }
+export interface ModelRequest { settings: ProviderSettings; apiKey: string; system: string; messages: ModelMessage[]; tools: ToolDefinition[]; signal: AbortSignal; onRetry?: (message: string)=>void; beforeRequest?:()=>void; }
 export interface ModelResult { text: string; calls: ToolCall[]; inputTokens: number; outputTokens: number; rawOutput?: unknown[]; }
 export type ModelClient = (request: ModelRequest)=>Promise<ModelResult>;
 type Json = Record<string, any>;
@@ -31,11 +31,12 @@ function argumentsOf(value: unknown): Record<string, unknown> {
   if (typeof value === 'string') { try { const parsed = JSON.parse(value); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; } catch { return { __invalid_arguments: value }; } }
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
-export async function jsonRequest(url: string, init: RequestInit, signal: AbortSignal, retry?: (message:string)=>void): Promise<Json> {
+export async function jsonRequest(url: string, init: RequestInit, signal: AbortSignal, retry?: (message:string)=>void, beforeRequest?:()=>void): Promise<Json> {
   for (let attempt = 0; ; attempt++) {
     signal.throwIfAborted();
     const timed = AbortSignal.any([signal, AbortSignal.timeout(120_000)]);
     let response: Response;
+    beforeRequest?.();
     try { response = await fetch(url, { ...init, signal: timed, redirect: 'error' }); }
     catch (error) { if (signal.aborted) throw error; throw new Error('Could not reach the provider. Check the endpoint and network connection. Redirects are not followed.'); }
     const body = await response.text();
@@ -84,7 +85,7 @@ export const callModel: ModelClient = async (request) => {
     endpoint = `${base}/chat/completions`;
   }
   if (!tools.length) delete body.tools;
-  const result = await jsonRequest(endpoint, { method: 'POST', headers: headers(settings, apiKey), body: JSON.stringify(body) }, signal, onRetry);
+  const result = await jsonRequest(endpoint, { method: 'POST', headers: headers(settings, apiKey), body: JSON.stringify(body) }, signal, onRetry, request.beforeRequest);
   if (protocol === 'responses') {
     const output: Json[] = result.output || [];
     if (result.status === 'failed' || result.error) throw new Error('The model could not complete this response. Check the provider dashboard.');

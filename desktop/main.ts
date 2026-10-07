@@ -1,6 +1,7 @@
 import {app,BrowserWindow,ipcMain,protocol,net,safeStorage,dialog,shell,Menu,Tray,nativeImage,Notification} from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import {mkdirSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {createRuntime} from './runtime';
@@ -8,9 +9,13 @@ import {createEngine} from './engine';
 import type {AppState,Attachment} from '../shared/types';
 
 protocol.registerSchemesAsPrivileged([{scheme:'ibot',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true}}]);
-app.setName('I Bot');
+app.setName('OpenIbot');
 app.setAppUserModelId('app.ibot.desktop');
-if(process.env.IBOT_DATA_DIR) app.setPath('userData',path.resolve(process.env.IBOT_DATA_DIR));
+// Keep the existing profile and single-instance lock across the product rename.
+const profileDir=process.env.IBOT_DATA_DIR?path.resolve(process.env.IBOT_DATA_DIR):path.join(app.getPath('appData'),'I Bot');
+mkdirSync(profileDir,{recursive:true});
+app.setPath('userData',profileDir);
+app.setPath('sessionData',profileDir);
 if(!app.requestSingleInstanceLock()) app.exit(0);
 let win:BrowserWindow|null=null;
 let tray:Tray|null=null;
@@ -18,9 +23,10 @@ let quitting=false;
 let shutdownComplete=false;
 let shutdownStarted=false;
 let engine:Awaited<ReturnType<typeof createEngine>>;
-const allowed=new Set(['state.get','bot.create','bot.update','chat.create','chat.send','chat.pause','chat.resume','chat.delete','settings.update','provider.save','provider.test','provider.discover','provider.activate','provider.delete','routine.save','routine.delete','routine.run','skill.save','skill.install','skill.delete','approval.resolve','connector.save','connector.test','connector.delete']);
+const allowed=new Set(['state.get','bot.create','bot.update','bot.delete','bot.restore','bot.setMain','bot.takeover','memory.list','memory.save','memory.revisions','memory.rollback','memory.delete','activity.get','activity.reconcile','chat.create','chat.send','chat.pause','chat.resume','chat.delete','settings.update','provider.save','provider.test','provider.discover','provider.activate','provider.delete','routine.save','routine.delete','routine.run','skill.save','skill.install','skill.delete','approval.resolve','connector.save','connector.test','connector.classify','connector.delete']);
 const desktopCommands=new Set(['runtime.status','runtime.build','workspace.inspect','workspace.start','workspace.stop','workspace.exec','workspace.files','workspace.read','workspace.write','workspace.screenshot','workspace.export','files.pick','files.open','app.info','app.open-data','app.quit','external.open']);
 for(const command of ['media.models','media.generate','media.transcribe','media.cancel','connector.authorize'])allowed.add(command);
+allowed.add('bot.createBlank');
 for(const command of ['avatar.pick','voice.microphone','chat.export'])desktopCommands.add(command);
 let microphoneUntil=0;
 function normalizeAvatar(data:string) {
@@ -35,7 +41,7 @@ function isTrustedUrl(value:string){
   try{const url=new URL(value);return url.protocol==='ibot:'&&url.hostname==='app'||!!process.env.IBOT_DEV_URL&&url.origin==='http://127.0.0.1:5177';}catch{return false;}
 }
 function validateSender(event:Electron.IpcMainInvokeEvent|Electron.IpcMainEvent){
-  if(!win||event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame||!isTrustedUrl(event.senderFrame.url))throw new Error('This action is only available in I Bot.');
+  if(!win||event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame||!isTrustedUrl(event.senderFrame.url))throw new Error('This action is only available in OpenIbot.');
 }
 function textArg(args:Record<string,unknown>,key:string,max=10000){const value=args[key];if(typeof value!=='string'||!value||value.length>max)throw new Error(`Invalid ${key}.`);return value;}
 let priorState:AppState|undefined;
@@ -45,7 +51,7 @@ function sendState(state:AppState){
     const pending=state.approvals.find(item=>item.status==='pending'&&!priorState!.approvals.some(old=>old.id===item.id));
     const finished=state.chats.find(chat=>['idle','error'].includes(chat.status)&&priorState!.chats.some(old=>old.id===chat.id&&old.status==='running'));
     const body=pending?'A bot needs your approval to continue.':finished?`${finished.title}: ${finished.status==='error'?'needs attention':'finished'}.`:'';
-    if(body){const notice=new Notification({title:'I Bot',body});notice.on('click',showWindow);notice.show();}
+    if(body){const notice=new Notification({title:'OpenIbot',body});notice.on('click',showWindow);notice.show();}
   }
   priorState=state;
 }
@@ -56,7 +62,7 @@ app.on('activate',showWindow);
 app.whenReady().then(async()=>{
   const dataDir=app.getPath('userData');
   const resourceDir=app.isPackaged?process.resourcesPath:app.getAppPath();
-  const runtime=createRuntime({dataDir,resourcesDir:resourceDir});
+  const runtime=createRuntime({dataDir,resourcesDir:resourceDir,networkHosts:botId=>engine.getState().bots.find(bot=>bot.id===botId)?.networkHosts??[]});
   engine=await createEngine({dataDir,runtime,emit:sendState,
     openExternal:async url=>{await shell.openExternal(url);},normalizeAvatar,
     encrypt:(text:string)=>{if(!safeStorage.isEncryptionAvailable())throw new Error('Windows credential encryption is unavailable.');return safeStorage.encryptString(text).toString('base64');},
@@ -71,7 +77,7 @@ app.whenReady().then(async()=>{
     if(!file.startsWith(rendererRoot+path.sep))return new Response('Forbidden',{status:403});
     return net.fetch(pathToFileURL(file).toString());
   });
-  win=new BrowserWindow({width:1360,height:900,minWidth:960,minHeight:640,show:false,frame:false,backgroundColor:'#101112',title:'I Bot',icon:path.join(app.getAppPath(),'assets','icon.png'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,spellcheck:true}});
+  win=new BrowserWindow({width:1360,height:900,minWidth:960,minHeight:640,show:false,frame:false,backgroundColor:'#0c1413',title:'OpenIbot',icon:path.join(app.getAppPath(),'assets','icon.png'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,spellcheck:true}});
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   win.webContents.on('will-navigate',(event,url)=>{if(!isTrustedUrl(url))event.preventDefault();});
   win.webContents.on('will-attach-webview',event=>event.preventDefault());
@@ -84,15 +90,17 @@ app.whenReady().then(async()=>{
   Menu.setApplicationMenu(null);
   const icon=nativeImage.createFromPath(path.join(app.getAppPath(),'assets','icon.png'));
   if(!icon.isEmpty()){
-    tray=new Tray(icon.resize({width:20,height:20}));tray.setToolTip('I Bot — your team is here');
-    tray.setContextMenu(Menu.buildFromTemplate([{label:'Open I Bot',click:showWindow},{type:'separator'},{label:'Quit I Bot',click:()=>{quitting=true;app.quit();}}]));tray.on('double-click',showWindow);
+    tray=new Tray(icon.resize({width:20,height:20}));tray.setToolTip('OpenIbot — your team is here');
+    tray.setContextMenu(Menu.buildFromTemplate([{label:'Open OpenIbot',click:showWindow},{type:'separator'},{label:'Quit OpenIbot',click:()=>{quitting=true;app.quit();}}]));tray.on('double-click',showWindow);
   }
   ipcMain.on('ibot:window',(event,action)=>{validateSender(event);if(action==='minimize')win?.minimize();else if(action==='maximize'){if(win?.isMaximized())win.unmaximize();else win?.maximize();}else if(action==='close')win?.close();});
   ipcMain.handle('ibot:invoke',async(event,command:unknown,input:unknown)=>{
     validateSender(event);
     if(typeof command!=='string'||(!allowed.has(command)&&!desktopCommands.has(command)))throw new Error('Unknown application action.');
     if(input!==undefined&&(!input||typeof input!=='object'||Array.isArray(input)))throw new Error('Invalid action data.');
-    const args=(input??{}) as Record<string,unknown>;
+    // Actor metadata is created after sender validation, never taken from the payload.
+    const invocation={actor:'user' as const,command,args:(input??{}) as Record<string,unknown>};
+    const args=invocation.args;
     if(JSON.stringify(args).length>4_000_000)throw new Error('Action data is too large.');
     if(command==='voice.microphone'){microphoneUntil=Date.now()+15_000;return true;}
     if(command==='avatar.pick'){
@@ -105,7 +113,7 @@ app.whenReady().then(async()=>{
     if(command==='chat.export'){
       const state=engine.getState(),chat=state.chats.find(item=>item.id===args.chatId);if(!chat)throw new Error('Conversation not found.');
       const result=await dialog.showSaveDialog(win!,{title:'Export conversation',defaultPath:chat.title.replace(/[<>:"/\\|?*\x00-\x1f]/g,'').slice(0,80)+'.md',filters:[{name:'Markdown',extensions:['md']}]});if(result.canceled||!result.filePath)return false;
-      const body=state.messages.filter(item=>item.chatId===chat.id).map(item=>`## ${item.role==='user'?'You':state.bots.find(bot=>bot.id===item.botId)?.name??'I Bot'} · ${new Date(item.createdAt).toLocaleString()}\n\n${item.content}\n${item.attachments?.map(file=>`\nAttachment: ${file.name}`).join('')??''}`).join('\n\n');
+      const body=state.messages.filter(item=>item.chatId===chat.id).map(item=>`## ${item.role==='user'?'You':state.bots.find(bot=>bot.id===item.botId)?.name??'OpenIbot'} · ${new Date(item.createdAt).toLocaleString()}\n\n${item.content}\n${item.attachments?.map(file=>`\nAttachment: ${file.name}`).join('')??''}`).join('\n\n');
       await fs.writeFile(result.filePath,`# ${chat.title}\n\n${body}\n`,'utf8');return true;
     }
     if(command.startsWith('workspace.')){
@@ -146,9 +154,9 @@ app.whenReady().then(async()=>{
       const imports=path.join(dataDir,'imports');
       for(const attachment of args.attachments as Attachment[]){if(!attachment||typeof attachment.path!=='string'||!path.resolve(attachment.path).startsWith(imports+path.sep))throw new Error('Attach files using the file picker.');}
     }
-    return engine.invoke(command,args);
+    return engine.invoke(command,args,{actor:invocation.actor});
   });
   if(process.env.IBOT_DEV_URL){if(process.env.IBOT_DEV_URL!=='http://127.0.0.1:5177')throw new Error('Invalid development server.');await win.loadURL(process.env.IBOT_DEV_URL);}else await win.loadURL('ibot://app/index.html');
-}).catch(error=>{console.error(error);dialog.showErrorBox('I Bot could not start',error instanceof Error?error.message:String(error));quitting=true;app.quit();});
+}).catch(error=>{console.error(error);dialog.showErrorBox('OpenIbot could not start',error instanceof Error?error.message:String(error));quitting=true;app.quit();});
 app.on('before-quit',event=>{quitting=true;if(engine&&!shutdownComplete){event.preventDefault();if(!shutdownStarted){shutdownStarted=true;Promise.resolve(engine.shutdown()).finally(()=>{shutdownComplete=true;app.quit();});}}});
 app.on('window-all-closed',()=>{if(!tray||quitting||!engine?.getState().settings.closeToTray)app.quit();});

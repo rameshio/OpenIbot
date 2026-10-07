@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,readFile,writeFile} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {createEngine} from '../desktop/engine';
+import type {Bot,Chat,RuntimeService} from '../shared/types';
+
+test('main bot selection and renamed identities survive restart without changing existing chats',async t=>{
+ const dataDir=await mkdtemp(path.join(os.tmpdir(),'ibot-main-bot-'));
+ const systems:string[]=[];
+ const options={dataDir,runtime:{} as RuntimeService,emit:()=>{},scheduler:false,encrypt:(s:string)=>s,decrypt:(s:string)=>s,modelClient:async(request:{system:string})=>{systems.push(request.system);return {text:'Done',calls:[],inputTokens:0,outputTokens:0};}};
+ const engine=createEngine(options);t.after(()=>engine.shutdown());
+ assert.equal(engine.getState().mainBotId,'chief');
+ const original=await engine.invoke('chat.create',{}) as Chat;
+ const specialist=await engine.invoke('bot.create',{name:'Researcher',role:'Find sources'}) as Bot;
+ await engine.invoke('bot.update',{id:'chief',name:'Coordinator'});
+ await engine.invoke('bot.setMain',{id:specialist.id});
+ await engine.invoke('bot.update',{id:specialist.id,name:'Atlas'});
+ assert.equal(engine.getState().bots.find(b=>b.id===specialist.id)?.name,'Atlas');
+ const selected=await engine.invoke('chat.create',{}) as Chat;assert.deepEqual(selected.botIds,[specialist.id]);
+ await engine.invoke('provider.save',{provider:'compatible',model:'test',baseUrl:'http://localhost:1234/v1'});await engine.invoke('chat.send',{chatId:selected.id,content:'Help with this task'});await engine.waitForIdle();assert(systems[0].startsWith('You are Atlas,'),'New runs route to the selected main bot');
+ assert.deepEqual((await engine.invoke('chat.create',{botIds:[]}) as Chat).botIds,[specialist.id]);
+ assert.deepEqual(engine.getState().chats.find(c=>c.id===original.id)?.botIds,['chief']);
+ await assert.rejects(engine.invoke('bot.setMain',{id:'missing'}));assert.equal(engine.getState().mainBotId,specialist.id);
+ await engine.shutdown();const restored=createEngine(options);t.after(()=>restored.shutdown());
+ assert.equal(restored.getState().mainBotId,specialist.id);assert.equal(restored.getState().bots.find(b=>b.id==='chief')?.name,'Coordinator');
+ assert.equal(restored.getState().bots.find(b=>b.id===specialist.id)?.name,'Atlas');
+ await restored.shutdown();
+ const file=path.join(dataDir,'state.json'),saved=JSON.parse(await readFile(file,'utf8'));delete saved.state.mainBotId;await writeFile(file,JSON.stringify(saved));
+ const legacy=createEngine(options);t.after(()=>legacy.shutdown());assert.equal(legacy.getState().mainBotId,'chief','Legacy profiles preserve Chief as their default');
+});
