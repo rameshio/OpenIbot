@@ -1,114 +1,169 @@
-# OpenIbot
+<div align="center">
+  <img src="assets/icon.png" alt="OpenIbot Logo" width="120" />
+  <h1>OpenIbot</h1>
+  <p><strong>Open-source multi-model AI agent workspace.</strong></p>
+  <p>One workspace. Multiple AI models. Specialized agents working together.</p>
 
-A Windows desktop application for directing a team of persistent AI bots through a chat interface. Start a conversation, describe an outcome, and let Chief coordinate specialists. Each bot has its own memory and an isolated Linux computer.
+  <a href="https://github.com/rameshio/OpenIbot/actions"><img src="https://img.shields.io/badge/Build-Passing-brightgreen.svg" alt="Build Status"></a>
+  <a href="https://github.com/rameshio/OpenIbot/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/Language-TypeScript-blue.svg" alt="TypeScript"></a>
+  <a href="https://github.com/rameshio/OpenIbot"><img src="https://img.shields.io/badge/Open%20Source-%E2%9D%A4-red.svg" alt="Open Source"></a>
 
-## Major Features
+  <br />
+  <img src="docs/assets/openibot-hero.png" alt="OpenIbot Interface" width="100%" style="border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
+</div>
 
-- **Team Coordination**: Direct multiple bots in group chats, each with its own role and memory.
-- **Isolated Linux Computers**: Each bot runs in its own Docker-powered Linux environment complete with a graphical desktop, browser, terminal, and persistent files.
-- **Animated Avatars**: Bots have customizable animated avatars and unique identities.
-- **Action Review**: Approve or decline actions in the conversation before the bot executes them.
-- **Teach a Task**: Record pointer/navigation steps to save reusable skills for your bots.
-- **Routines**: Schedule recurring background tasks.
-- **Privacy and Security**: API keys are encrypted via your OS's native secure storage facility and remain strictly on your local device.
+<br />
 
-## Supported AI Providers & Models
+Give OpenIbot a task, choose your AI model, and watch specialized agents plan, collaborate, review, and produce the final result.
 
-OpenIbot supports a wide variety of APIs through built-in connections and standard OpenAI-compatible endpoints:
+---
 
-- OpenAI
-- Anthropic
-- Google Gemini
-- xAI (Grok)
-- Groq
-- DeepSeek
-- Mistral
-- Cohere
-- OpenRouter
-- Local Servers (e.g. LM Studio, Ollama)
+## 🚀 Features
 
-## High-Level Architecture
+- **Multi-Agent Teams:** Direct multiple bots in group chats, each with its own role and memory.
+- **Isolated Linux Workspaces:** Every agent gets a secure, private Linux computer via Docker for browsing, terminal execution, and file manipulation.
+- **Animated Avatars:** Your agents have customizable appearances and animated identities.
+- **Workflow Teaching:** Record pointer and navigation steps to teach bots reusable skills.
+- **Action Review:** Approve or decline a bot's planned actions before they happen.
+- **Scheduled Routines:** Set up background agents to perform tasks automatically.
 
-OpenIbot is built as an Electron desktop application:
-- **Renderer (`renderer/`)**: The chat interface, bot UI, and noVNC viewer built with React and Vite.
-- **Main Process (`desktop/`)**: Handles OS integration, safeStorage credential encryption, IPC, orchestration, tool routing, and approvals.
-- **Docker Containers (`containers/`)**: Linux workspace images provisioned dynamically for each bot using the Docker engine.
+---
 
-## Prerequisites
+## ⚙️ How OpenIbot Works
 
-- **Windows**: The current release focuses on the Windows desktop environment.
-- **Node.js**: v20 or newer (for development).
-- **Docker Desktop**: Required to provision the Linux workspaces. Ensure Docker is running with the Linux engine.
+1. **Describe your task:** Tell OpenIbot what you want accomplished in the Task Composer.
+2. **Choose an AI model:** Select a provider connection (e.g., OpenAI, Claude, local LLMs).
+3. **OpenIbot plans the work:** The Chief orchestrator breaks the task into steps and brings in specialized agents.
+4. **Agents work:** The assigned agents do the heavy lifting using tools, files, and browsers.
+5. **Review:** The work is reviewed and synthesized.
+6. **Final result:** OpenIbot presents the completed work.
 
-## Installation & Environment Setup
+<div align="center">
+  <img src="docs/assets/openibot-workflow.png" alt="OpenIbot Workflow" width="800" />
+</div>
+
+```mermaid
+flowchart LR
+    User --> Task[Task Composer]
+    Task --> Chief[Chief / Orchestrator]
+    Chief --> Planning[Plan Work]
+    Planning --> Agents[Specialized Agents]
+    Agents --> Review[Review / Action Rules]
+    Review --> Result[Final Result & Files]
+```
+
+---
+
+## 📸 Screenshots
+
+| Task Composer | Agent Collaboration |
+|:---:|:---:|
+| <img src="docs/assets/task-composer.png" alt="Task Composer" width="400"/> | <img src="docs/assets/agents-view.png" alt="Agents View" width="400"/> |
+
+| Workspace Graph | File Output |
+|:---:|:---:|
+| <img src="docs/assets/graph-view.png" alt="Graph View" width="400"/> | <img src="docs/assets/files-view.png" alt="Files View" width="400"/> |
+
+---
+
+## 🧠 Supported AI Models
+
+OpenIbot works with a variety of providers through native connections and OpenAI-compatible endpoints.
+
+| Provider | Status | Notes |
+|---|:---:|---|
+| OpenAI | ✅ | Native API integration |
+| Anthropic | ✅ | Claude 3+ models |
+| Google | ✅ | Gemini models |
+| xAI | ✅ | Grok models |
+| Groq | ✅ | Fast inference endpoints |
+| DeepSeek | ✅ | Supported via compatible APIs |
+| Mistral | ✅ | Supported via compatible APIs |
+| Cohere | ✅ | Supported via compatible APIs |
+| OpenRouter | ✅ | Full catalog support |
+| Local Servers | ✅ | LM Studio, Ollama, vLLM |
+
+*Note: You must bring your own API keys. All keys are encrypted safely on your device using native OS secret storage and are never sent anywhere except to the providers you configure.*
+
+---
+
+## 🏗 Architecture
+
+OpenIbot is built entirely locally as an Electron desktop app with Docker integration.
+
+- **Frontend (Renderer):** Built with React, Vite, and Lucide Icons. Manages the chat, UI, and noVNC viewing for agent workspaces.
+- **Backend (Main Process):** Electron main process handles OS integrations, secret management via `safeStorage`, agent orchestration, tool execution, and local database handling.
+- **Docker Workspaces:** Uses Docker to dynamically provision fully isolated Linux desktops. The bots interact with the system via internal bridges.
+- **Memory & Tools:** Agents access robust tool suites including shell, browser automation, file I/O, and semantic memory search.
+
+---
+
+## 🚦 Project Status
+
+**Alpha**
+
+OpenIbot is under active development. While the core orchestration and Docker integrations are functional, APIs, workflows, and interfaces may change significantly as the project evolves. Expect bugs and please review agent actions carefully!
+
+---
+
+## 🗺 Roadmap
+
+- [ ] Additional native provider integrations
+- [ ] Improved agent orchestration protocols
+- [ ] Expanded tool/plugin ecosystem
+- [ ] Better workflow persistence across restarts
+- [ ] Enhanced graph visualization for multi-agent logic
+- [ ] Refined local and private inference experiences
+
+---
+
+## 💻 Getting Started
+
+### Prerequisites
+- **Windows** (Current focus)
+- **Node.js** v20+
+- **Docker Desktop** (Must be running with the Linux engine)
+
+### Installation
 
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/rameshio/OpenIbot.git
    cd OpenIbot
    ```
-
 2. **Install dependencies:**
    ```bash
    npm install
    ```
-
 3. **Environment Setup:**
-   Copy the example environment variables file:
    ```bash
    cp .env.example .env.local
    ```
-   Open `.env.local` and set a strong `IBOT_LOCAL_PASSWORD` (at least 16 characters). Provider API keys can be provided here or configured within the application UI (where they will be securely encrypted).
+   Open `.env.local` and set a strong `IBOT_LOCAL_PASSWORD` (at least 16 characters). 
 
-## Development Commands
+4. **Start Development Server:**
+   ```bash
+   npm run dev
+   ```
 
-Run the application in development mode (starts the Vite dev server and the Electron app):
-```bash
-npm run dev
-```
-
-Run tests and type checks:
-```bash
-npm run typecheck
-npm test
-npm run test:desktop
-npm run test:providers
-```
-
-## Production Build Commands
-
-Build the production assets:
+### Production Build
 ```bash
 npm run build
-```
-
-Package the application as a portable Windows executable:
-```bash
 npm run package
 ```
-The output will be placed in the `release/` directory.
+*The output executable will be created in `release/`.*
 
-## Project Structure
+---
 
-- `renderer/` — React frontend, chat UI, settings, and computer view
-- `desktop/` — Electron main process, orchestrator, state storage, and runtime manager
-- `containers/` — Dockerfiles for the Linux environments and VNC viewer
-- `shared/` — Types and IPC contract definitions
-- `docs/` — Documentation handbook for understanding the codebase
-- `tests-desktop/` — E2E and unit tests
+## 🤝 Contributing
 
-## Security Guidance
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details on setting up your environment and submitting Pull Requests.
 
-- **Do not commit secrets**: Ensure your API keys and passwords stay out of `.env` files meant for git. Use `.env.local`.
-- **Review container actions**: Running untrusted code on your machine is dangerous. OpenIbot isolates bots in Docker containers, but please review what bots do via the Action Review feature.
-- See `SECURITY.md` for more information on vulnerability reporting.
+## 🔒 Security
 
-## Contribution Instructions
+For security information and how to report vulnerabilities, please read our [Security Policy](SECURITY.md).
 
-We welcome contributions! Please see `CONTRIBUTING.md` for details on how to set up the project, make changes, and submit a Pull Request.
+## 📄 License
 
-Ensure any code changes are reflected in the `docs/code/` directory, following the maintenance guidelines.
-
-## License
-
-This project is licensed under the MIT License - see the `LICENSE` file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
