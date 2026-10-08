@@ -50,6 +50,14 @@ The root [README](../../README.md) documents `IBOT_RUNTIME_INTEGRATION` and `IBO
 
 [TESTING.md](../../TESTING.md) records earlier commands/results and their tested snapshots. Do not reuse those counts as current evidence. The current default `npm test` does not execute retained `tests/` web tests or the standalone Python egress test automatically. A skipped opt-in test should be reported as skipped, with its prerequisite, rather than called a pass.
 
+### Beginner demo media
+
+`node scripts/create-demo.mjs` captures the built desktop application in a temporary `IBOT_DATA_DIR` profile with `IBOT_TEST=1`. It waits for current controls, opens model setup without entering credentials, fills a study-plan draft, and creates a bot using the real direct-creation command. For the result screen only, it sends a renderer snapshot containing explicitly labeled sample messages; this illustrates Markdown display without a live model response. No normal profile is read, no provider is connected and no computer is started. The app closes before the script removes its own verified temporary directory. Four source PNGs go to `docs/assets/demo/`.
+
+`python scripts/render-demo.py` uses Pillow (a Python image library) to combine those PNGs with beginner captions and the packaged icon. `base` draws the shared card and `render` creates five cards, encodes five six-second segments with FFmpeg, and joins them into `openibot-demo.mp4`. A temporary render directory holds segments and is removed automatically. Inputs must be captured first after `npm run build`. Prerequisites: Windows Segoe UI fonts, Python/Pillow and FFmpeg on PATH. Outputs are documentation media, not packaged runtime features; no saved-data schema or application API changes. The MP4 is silent, H.264, 30 fps and 1600×1000, with a small centered zoom per card. Sample answers remain labeled in both the screenshot and [user guide](../demo.md).
+
+The renderer accepts `FFMPEG_BINARY` to select a current FFmpeg executable when PATH points to an older version without the required filters.
+
 ## When changing tooling
 
 Update commands, entry/output paths, prerequisites, packaging contents, and validation selection here. Record exact checks and results in the [change log](CHANGELOG.md). Distinguish source review, typecheck, unit tests, desktop fixtures, live services, and packaged-app checks.

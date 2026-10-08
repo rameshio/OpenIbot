@@ -57,6 +57,12 @@ flowchart LR
 
 ## See OpenIbot in Action
 
+[Watch the 30-second beginner demo](docs/assets/demo/openibot-demo.mp4) · [Read the illustrated quick-start guide](docs/demo.md)
+
+The captioned demo shows model setup, writing a task, creating a bot, and reviewing an illustrative answer. It uses a disposable profile; its sample answer is labeled and is not a live model result.
+
+![OpenIbot quick start](docs/assets/demo/00-overview.png)
+
 ### 1. Give OpenIbot a task
 
 ![OpenIbot Task Composer](docs/assets/task-composer.png)

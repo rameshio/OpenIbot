@@ -2,6 +2,18 @@
 
 Use [the maintenance workflow](15-maintenance.md) for new entries. Newest entries go first. This log begins with the handbook task; it does not reconstruct undocumented prior changes. Earlier evidence is in [TESTING.md](../../TESTING.md) and existing feature notes.
 
+## 2026-10-07 — Beginner demo video and guide images
+
+Status: implemented documentation media and regeneration tooling; working tree.
+
+Reason: users need a short, easy explanation of how to start using OpenIbot. Before: the README had screenshots but no short video or dedicated illustrated beginner guide. After: the README links a silent 30-second captioned demo and `docs/demo.md`, with five matching guide images explaining model setup, a task draft, direct bot creation and answer review. The final answer is explicitly labeled illustrative sample content rather than a live model result.
+
+Files and path: `scripts/create-demo.mjs` launches the built Electron app in its own temporary profile, opens actual controls, captures four source screenshots with `shot`, and broadcasts a renderer-only sample result snapshot. `scripts/render-demo.py` reads those PNGs and `assets/icon.png`; `base` draws captions and `render` saves five 1600×1000 PNGs, encodes five six-second segments and joins a 30 fps H.264 MP4 with FFmpeg. Outputs live in `docs/assets/demo/`. `docs/demo.md` explains the steps, sample-content limits and prerequisites. `README.md` exposes the guide and media to users. The tooling is listed in [the file reference](14-file-reference.md) and explained in [build and testing](12-build-and-testing.md).
+
+Compatibility: application source, IPC contracts, saved-data schemas and packaged files are unchanged. The capture uses `IBOT_DATA_DIR` and `IBOT_TEST=1`, never connects a provider or starts a computer, closes Electron and removes only the specific temporary profile created by that invocation. The illustrated result is not saved to the engine. Rendering requires Python/Pillow, Windows Segoe UI fonts and a current FFmpeg build; `FFMPEG_BINARY` can override an older executable on PATH. There is no audio track or in-app tutorial.
+
+Verification: `npm run build` passes with the existing large-bundle advisory. `node scripts/create-demo.mjs` passes its assertions for an empty provider list, two bots after actual creation and zero renderer errors. `python scripts/render-demo.py` succeeds with FFmpeg 8.1.2 selected via `FFMPEG_BINARY`. Visually inspected all five final images and the source sample-result screen. FFprobe confirms H.264, 1600×1000, 30 fps, 900 frames, exactly 30 seconds and a 1,886,795-byte MP4; decoding the complete video with FFmpeg reports no errors. Node syntax check and Python compilation pass. No live-provider, Docker or packaged-app run is claimed; capture uses the freshly built development entry point. Runtime tests were not repeated because runtime behavior did not change.
+
 ## 2026-10-07 — Higgsfield identity and premium workspace
 
 Status: implemented; working tree.
