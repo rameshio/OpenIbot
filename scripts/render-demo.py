@@ -85,7 +85,12 @@ def render():
         subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', '-f', 'concat',
                         '-safe', '0', '-i', str(listing), '-c', 'copy', '-movflags', '+faststart',
                         str(OUTPUT / 'openibot-demo.mp4')], check=True)
-    print('Created five 1600x1000 guide images and a silent 30-second captioned MP4.')
+    # GitHub renders image animations inline; repository MP4 links open file pages.
+    subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-y',
+                    '-i', str(OUTPUT / 'openibot-demo.mp4'), '-filter_complex',
+                    'fps=5,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3',
+                    '-loop', '0', str(OUTPUT / 'openibot-demo.gif')], check=True)
+    print('Created five guide images, a silent 30-second MP4 and an animated README preview.')
 
 
 if __name__ == '__main__':

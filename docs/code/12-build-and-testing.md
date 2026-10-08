@@ -58,6 +58,8 @@ The root [README](../../README.md) documents `IBOT_RUNTIME_INTEGRATION` and `IBO
 
 The renderer accepts `FFMPEG_BINARY` to select a current FFmpeg executable when PATH points to an older version without the required filters.
 
+After encoding the MP4, `render` also creates `openibot-demo.gif` with FFmpeg's `palettegen` and `paletteuse` filters (these select and apply the GIF's limited color palette). The 960×600 preview loops at five frames per second and shows the same 30-second content. The README and beginner guide embed this image for inline animation, and link the MP4 with `?raw=true` for download rather than opening its GitHub file page. The GIF has no playback controls; the full-resolution MP4 remains available for controlled playback.
+
 ## When changing tooling
 
 Update commands, entry/output paths, prerequisites, packaging contents, and validation selection here. Record exact checks and results in the [change log](CHANGELOG.md). Distinguish source review, typecheck, unit tests, desktop fixtures, live services, and packaged-app checks.

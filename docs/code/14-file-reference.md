@@ -310,7 +310,7 @@ Inventory reviewed October 7, 2026. Read the numbered guides for code paths and 
 | [scripts/create-demo.mjs](../../scripts/create-demo.mjs) | Captures model setup, task draft, actual bot creation and an explicitly labeled illustrative result in a disposable Electron profile; `shot` saves source PNGs. |
 | [scripts/render-demo.py](../../scripts/render-demo.py) | `base` draws captioned cards; `render` produces five guide PNGs and a 30-second MP4 with Pillow/FFmpeg. |
 | [docs/demo.md](../demo.md) | Beginner walkthrough, sample-content limits, video/images and regeneration instructions. |
-| `docs/assets/demo/` | Four source screenshots, five captioned guide images and `openibot-demo.mp4`; generated documentation assets. |
+| `docs/assets/demo/` | Four source screenshots, five captioned guide images, `openibot-demo.mp4` and the inline animated preview `openibot-demo.gif`; generated documentation assets. |
 
 ## Handbook files
 

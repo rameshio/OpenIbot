@@ -2,6 +2,16 @@
 
 Use [the maintenance workflow](15-maintenance.md) for new entries. Newest entries go first. This log begins with the handbook task; it does not reconstruct undocumented prior changes. Earlier evidence is in [TESTING.md](../../TESTING.md) and existing feature notes.
 
+## 2026-10-07 — Show an animated demo directly in GitHub documentation
+
+Status: implemented; working tree.
+
+Reason: the user reported that the demo video did not play. Before: README and guide linked to a repository MP4 file page, with no inline animation. After: both embed a looping GIF of the same walkthrough and provide an explicitly labeled MP4 download link with `?raw=true`. The GIF plays as an image animation without video controls; controlled full-resolution playback uses the downloaded MP4.
+
+Files and path: `scripts/render-demo.py` — `render` still creates the guide cards and MP4, then passes the MP4 through FFmpeg's frame-rate, scaling and palette filters to produce `docs/assets/demo/openibot-demo.gif`. The README and `docs/demo.md` render that asset as an image. Updated [build guidance](12-build-and-testing.md) and [file reference](14-file-reference.md). Application data, engine, provider settings and installed runtime are unchanged.
+
+Verification: rendering succeeds using FFmpeg 8.1.2. Pillow reads all 150 GIF frames, verifies 960×600 pixels and a total duration of 30,000 milliseconds; the GIF is 6,774,594 bytes. `git diff --check` passes. Original source screens and MP4 are unchanged by regeneration. Anonymous GitHub requests return 404, so authenticated remote page playback was not verified. The user subsequently requested a Higgsfield cinematic video; reference uploads succeeded but generation was rejected for insufficient workspace credits, and the CLI rejected generation with `only_mcp_usage_on_trial_is_available`. No cinematic video job started or artifact is claimed.
+
 ## 2026-10-07 — Beginner demo video and guide images
 
 Status: implemented documentation media and regeneration tooling; working tree.

@@ -2,7 +2,11 @@
 
 Start with one bot and one clear task. The video and images below show the current desktop interface.
 
-[Watch or download the 30-second demo](assets/demo/openibot-demo.mp4)
+[Download the 30-second demo (MP4)](assets/demo/openibot-demo.mp4?raw=true)
+
+This animated preview plays directly in the guide. The MP4 download opens in a browser or media player after saving; a GitHub repository file page is not the playback link.
+
+![Animated beginner demo](assets/demo/openibot-demo.gif)
 
 The video is silent, with captions on every scene. The model setup, composer and new-bot greeting are actual interface captures. The final study plan is clearly marked **illustrative demo content**, not a live AI response. No provider request or Docker computer is started for these captures.
 
