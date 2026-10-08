@@ -57,11 +57,11 @@ flowchart LR
 
 ## See OpenIbot in Action
 
-[Download the 30-second demo (MP4)](docs/assets/demo/openibot-demo.mp4?raw=true) · [Read the illustrated quick-start guide](docs/demo.md)
+[Watch the 30-second demo on YouTube](https://youtu.be/09UNxEC3ZrQ) · [Read the illustrated quick-start guide](docs/demo.md) · [Download the MP4](docs/assets/demo/openibot-demo.mp4?raw=true)
 
-The preview below plays automatically. For full-size playback, download the MP4 and open it in your browser or media player.
+Click the preview below to watch the video on YouTube.
 
-![OpenIbot animated beginner demo](docs/assets/demo/openibot-demo.gif)
+[![Watch the OpenIbot demo on YouTube](docs/assets/demo/openibot-demo.gif)](https://youtu.be/09UNxEC3ZrQ)
 
 The captioned demo shows model setup, writing a task, creating a bot, and reviewing an illustrative answer. It uses a disposable profile; its sample answer is labeled and is not a live model result.
 

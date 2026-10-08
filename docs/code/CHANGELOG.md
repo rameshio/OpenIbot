@@ -2,6 +2,16 @@
 
 Use [the maintenance workflow](15-maintenance.md) for new entries. Newest entries go first. This log begins with the handbook task; it does not reconstruct undocumented prior changes. Earlier evidence is in [TESTING.md](../../TESTING.md) and existing feature notes.
 
+## 2026-10-07 — Link the beginner demo to YouTube playback
+
+Status: documentation only; working tree.
+
+Reason: the user uploaded the demo to YouTube and supplied `https://youtu.be/09UNxEC3ZrQ` to make playback easier from GitHub. Before: the README and guide showed a GIF and offered an MP4 download. After: both provide a prominent Watch on YouTube link and make the animated preview clickable, opening the supplied video. The local MP4 remains an offline download.
+
+Files and path: `README.md` and `docs/demo.md` wrap their existing local GIF image in a Markdown link to the YouTube URL. A click opens the external video page; no application handler, provider call or saved data is involved. Updated the current media explanation in [build and testing](12-build-and-testing.md). No source files, generated media or runtime compatibility changed.
+
+Verification: opened the supplied URL and confirmed its redirect to the YouTube watch page with video ID `09UNxEC3ZrQ` and the matching OpenIbot demo title. This confirms page resolution, not authenticated playback or availability in every region. Checked both Markdown previews target the supplied URL and retain valid local image/download paths; `git diff --check` passes. Runtime tests are unnecessary for this documentation-only update.
+
 ## 2026-10-07 — Show an animated demo directly in GitHub documentation
 
 Status: implemented; working tree.
